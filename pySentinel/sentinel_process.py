@@ -13,7 +13,7 @@ import shutil
 import osr
 import glob
 import gdal
-import FourSAIL as sail 
+from pyPro4Sail import FourSAIL as sail 
 import numpy as np
 from pySentinel.gdal_merge import gdal_merge
 import re
