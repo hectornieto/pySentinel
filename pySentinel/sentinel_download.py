@@ -165,7 +165,7 @@ class sentinel_configuration_download():
                     if not re.search(self.config_data['filename'], filename):
                         download=False
                 if download ==True:
-                    download_list.append([filename,True]) 
+                    download_list.append(filename) 
                     jobs.append((link,output))
         if len(jobs)>0:
             pool = multiprocessing.Pool(processes=self.MAX_DOWNLOADS) # how much parallelism?
@@ -176,7 +176,9 @@ class sentinel_configuration_download():
         if logfile:
             with open(logfile,'a') as logfid:
                 for download in download_list:
-                    logfid.write('%s\t%s\n'%(download[0],download[1]))
+                    logfid.write('%s\t%s\n'%(download[0],True))
+        
+        return download_list
 
 def wget_download_star(url_out,options):
     wget_download(*url_out,options_dict=options)
