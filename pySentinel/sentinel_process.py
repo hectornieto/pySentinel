@@ -644,7 +644,7 @@ def reproject_S3_SNAP(input_file,
         safe_unzip(input_file+'.zip',extractpath=basedir)
         
     input_xml_file=pth.join(input_file,'xfdumanifest.xml')
-    reproject='%s reproject -SsourceProduct="%s" -PpixelSizeX=%s -PpixelSizeY=%s -Presampling=Bilinear -Pcrs=EPSG:%s -q %s'%(gptsnap_bin,input_xml_file,resolution[0],resolution[1],epsg,paralellism)
+    reproject='%s reproject -SsourceProduct="%s" -PpixelSizeX=%s -PpixelSizeY=%s -Presampling=Bilinear -Pcrs=EPSG:%s -q %"s"'%(gptsnap_bin,input_xml_file,resolution[0],resolution[1],epsg,paralellism)
     if extent:
         easting=extent[0]
         northing=extent[1]
@@ -861,7 +861,7 @@ def saveImg (data, geotransform, proj, outPath, noDataValue = np.nan, dtype=gdal
         ds.SetProjection(proj)
         ds.SetGeoTransform(geotransform)
         ds.GetRasterBand(1).WriteArray(data)
-        ds.GetRasterBand(1).SetNoDataValue(noDataValue)
+        ds.GetRasterBdownload_listand(1).SetNoDataValue(noDataValue)
         
     print('Saved ' +outPath )
 
