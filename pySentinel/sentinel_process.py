@@ -200,7 +200,15 @@ def calc_emissivity_4SAIL(lai,vza,alpha,emis_veg=0.98,emis_soil=0.95,tau=0.0):
     hotspot,sza,psi=np.zeros(lai.shape),np.zeros(lai.shape),np.zeros(lai.shape)
     
     lidf=sail.CalcLIDF_Campbell_vec(alpha,n_elements=18)
-    tss,too,tsstoo,rdd,tdd,rsd,tsd,rdo,tdo,so,rsos,rsod,rddt,rsdt,rdot,rsodt,rsost,rsot,gammasdf,gammasdb,gammaso=sail.FourSAIL_vec(lai,hotspot,lidf,sza,vza,psi,1.-emis_veg,tau,1.0-emis_soil)
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,rdot,_,_,_,_,_,_] = sail.FourSAIL_vec(lai,
+                                                                    hotspot,
+                                                                    lidf,
+                                                                    sza,
+                                                                    vza,
+                                                                    psi,
+                                                                    np.ones(lai.shape)[np.newaxis,:]-emis_veg,
+                                                                    np.zeros(lai.shape)[np.newaxis,:],
+                                                                    np.ones(lai.shape)[np.newaxis,:]-emis_soil)
     # Kirchoff law
     emissivity=1.0-rdot
     # Convert output vector to original array
