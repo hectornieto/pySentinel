@@ -39,6 +39,7 @@ REQS = ['numpy>=1.10', 'gdal', 'pyPro4Sail', 'netCDF4']
 setup(
     name                  = "pySentinel",
     packages              = ['pySentinel'],
+    package_data={"pySentinel": ['Sen2Cor_L2A_GIPP_template.xml','SRF_S2A.txt','SRF_S2B.txt']},
     dependency_links      = ['http://github.com/hectornieto/pyPro4Sail/tarball/master#egg=pyPro4Sail-v1.0'],
     install_requires      = REQS,
     version               = "0.1",
