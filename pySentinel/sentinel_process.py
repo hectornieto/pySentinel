@@ -21,7 +21,7 @@ import re
 sen2CorTemplateFile = "/home/eouser/Sen2Cor_L2A_GIPP_template.xml" # Path to the default sen2cor GIPP xml
 C_SEN2COR_OUTPUT_DIR = "<!SEN2COR_OUTPUT_DIR!>" # Path to the default L2A folder
 sen2cor_path = pth.join('/home','eouser','Sen2Cor-2.4.0-Linux64','bin') # Path to the sen2cor binary folder
-gptsnap_bin = pth.join('/usr','local','snap','bin','gpt') # Path to the SNAP gpt binary file
+gptsnap_bin = 'gpt' # Path to the SNAP gpt binary file
 
 def point2pix(coords , gt, upperBound = False):
     ''' Convert map coordinates into pixel coordinates
@@ -563,7 +563,7 @@ def mosaic_sentinel_SAGA(product_list,
 def reproject_S3_SNAP(input_file,
                       epsg,
                       resolution,
-                      extent=None,
+                      extent,
                       output_file=None,
                       paralellism=1):
     ''' Reprojects Sentinel 3 product using ESA-SNAP
@@ -601,7 +601,7 @@ def reproject_S3_SNAP(input_file,
       Reprojection of a source product to a target Coordinate Reference System.
      
     Source Options:
-      -ScollocateWith=<file>    The source product will be collocated with this product.
+      -cd =<file>    The source product will be collocated with this product.
       -Ssource=<file>           The product which will be reprojected. This is a mandatory source.
     
     Parameter Options:
@@ -637,20 +637,56 @@ def reproject_S3_SNAP(input_file,
       -PwktFile=<file>                    A file which contains the target Coordinate Reference System in WKT format.
     '''
     
+    easting=extent[0]
+    northing=extent[1]
+    width=int(np.ceil((extent[2]-extent[0])/resolution[0]))
+    height=int(np.ceil((extent[1]-extent[3])/resolution[1]))
+
+    # SNAP-GPT graph file to enforce reprojecting the 1km dataset
+    xml_text='''<graph id="Graph">
+                  <version>1.0</version>
+                  <node id="ReadNode">
+                      <operator>Read</operator>
+                      <sources/>
+                          <parameters>
+                              <file>${slstrFile}</file>
+                              <formatName>Sen3_SLSTRL1B_1km</formatName>
+                          </parameters>
+                  </node>
+                  <node id="ReprojNode">
+                      <operator>Reproject</operator>
+                      <sources>
+                          <source>ReadNode</source>
+                      </sources>
+                      <parameters>
+                          <crs>EPSG:%s</crs>
+                          <pixelSizeX>%s</pixelSizeX>
+                          <pixelSizeY>%s</pixelSizeY>
+                          <resampling>Bilinear</resampling>
+                          <easting>%s</easting>
+                          <northing>%s</northing>
+                          <width>%s</width>
+                          <height>%s</height>
+                          <referencePixelX>0</referencePixelX>
+                          <referencePixelY>0</referencePixelY>
+                      </parameters>  
+                  </node>
+              </graph>'''%(epsg,resolution[0],resolution[1],easting,northing,width,height)
     # Uncompress data
     basedir=pth.dirname(input_file)
+    graph_file=pth.join(basedir,'graph.xml')
+    fid=open(graph_file,'w')
+    fid.write(xml_text)
+    fid.flush()
+    fid.close()
+    
     if not pth.isdir(input_file):
         print('Uncompressing '+input_file)
         safe_unzip(input_file+'.zip',extractpath=basedir)
         
     input_xml_file=pth.join(input_file,'xfdumanifest.xml')
-    reproject='%s reproject -SsourceProduct="%s" -PpixelSizeX=%s -PpixelSizeY=%s -Presampling=Bilinear -Pcrs=EPSG:%s -q %"s"'%(gptsnap_bin,input_xml_file,resolution[0],resolution[1],epsg,paralellism)
-    if extent:
-        easting=extent[0]
-        northing=extent[1]
-        width=int(np.ceil((extent[2]-extent[0])/resolution[0]))
-        height=int(np.ceil((extent[1]-extent[3])/resolution[1]))
-        reproject+=' -Peasting=%s -Pnorthing=%s -Pwidth=%s -Pheight=%s -PreferencePixelX=0.5 -PreferencePixelY=0.5'%(easting,northing,width,height) 
+    
+    reproject='%s %s -PslstrFile="%s" -q %s'%(gptsnap_bin,graph_file, input_xml_file,paralellism)
     
     if not output_file:
         output_file=input_file+'_reproject'
@@ -738,7 +774,9 @@ def resample_SNAP(input_file,
                                               Either this and targetHeight or referenceBand or targetResolution must be set.
       -Pupsampling=<string>                  The method used for interpolation (upsampling to a finer resolution).
                                              Value must be one of 'Nearest', 'Bilinear', 'Bicubic'.
-                                             Default value is "Nearest"'''
+                                             Default value is "Nearest"
+    '''
+    
     if not output_file:
         output_file=pth.splitext(input_file)[0]+'_resample_%sm'%(resolution)
     resample='%s resample -SsourceProduct="%s" -PtargetResolution=%s -Pupsampling=%s -Pdownsampling=%s -t "%s" -q %s'%(gptsnap_bin,input_file,resolution,upsampling,downsampling,output_file,paralellism) 
@@ -861,7 +899,7 @@ def saveImg (data, geotransform, proj, outPath, noDataValue = np.nan, dtype=gdal
         ds.SetProjection(proj)
         ds.SetGeoTransform(geotransform)
         ds.GetRasterBand(1).WriteArray(data)
-        ds.GetRasterBdownload_listand(1).SetNoDataValue(noDataValue)
+        ds.GetRasterBand(1).SetNoDataValue(noDataValue)
         
     print('Saved ' +outPath )
 
