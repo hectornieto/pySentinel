@@ -12,6 +12,7 @@ import os
 import multiprocessing
 from functools import partial
 import re
+import glob
  
 MAX_ATTEMPTS=5
 
@@ -129,30 +130,27 @@ class sentinel_configuration_download():
         output_dir=self.working_dir+sep+ self.config_data['platformname']
         if self.config_data['platformname']=='Sentinel-3':
             output_dir+=sep+ self.config_data['instrumentshortname']
-       
-        self.download_query_products(output_dir,wget_opts,logfile=self.logfile)
-
-    def download_query_products(self, output_dir, wget_opts, logfile=None):
         
-        import glob
-        # Check for already downloaded files:
         downloaded_files=set(glob.glob(output_dir+sep+'/*.zip'))
-        download_list=[]
-        xml=minidom.parse(self.query_file)
-        products=xml.getElementsByTagName('entry')
+        self.download_query_products(output_dir,
+                                     wget_opts,
+                                     logfile = self.logfile,
+                                     downloaded_files = downloaded_files)
+
+    def download_query_products(self, 
+                                output_dir, 
+                                wget_opts, 
+                                logfile=None, 
+                                downloaded_files=[]):
+        
         jobs=[]
-        for prod in products:# Loop along found products
-            # Get download link
-            link=prod.getElementsByTagName('link')[0].attributes.items()[0][1] 
-            # Find product name
-            for node in prod.getElementsByTagName('str'):
-                download=False
-                if len(node.attributes.items())>0:
-                    (name,field)=node.attributes.items()[0]
-                    if field=='filename':
-                        filename= str(node.toxml()).split('>')[1].split('<')[0]
-                    if field=='orbitdirection':
-                        orbit=str(node.toxml()).split('>')[1].split('<')[0]
+        download_list=[]
+        
+        # Get query results
+        links, filenames, orbits = parse_sentinel_hub_query(self.query_file)
+        
+        # Loop query results and downloaded files meeting the criteria
+        for link, filename, orbit in zip(links, filenames, orbits):
             output=output_dir+sep+filename
             if output+'.zip' not in downloaded_files:
                 download=True
@@ -167,19 +165,42 @@ class sentinel_configuration_download():
                 if download ==True:
                     download_list.append(filename) 
                     jobs.append((link,output))
+        
         if len(jobs)>0:
             pool = multiprocessing.Pool(processes=self.MAX_DOWNLOADS) # how much parallelism?
             pool.map(partial(wget_download_star,options=wget_opts), jobs)     
             pool.close()
             
-            # Retrieve file md5 checksum from the repository    
+        # Retrieve file md5 checksum from the repository    
         if logfile:
             with open(logfile,'a') as logfid:
                 for download in download_list:
-                    logfid.write('%s\t%s\n'%(download[0],True))
+                    logfid.write('%s\t%s\n'%(download,True))
         
         return download_list
-
+    
+def parse_sentinel_hub_query(query_file):
+    xml=minidom.parse(query_file)
+    products=xml.getElementsByTagName('entry')
+    
+    links, filenames, orbits= [], [], []
+    for prod in products:# Loop along found products
+        # Get download link
+        link=prod.getElementsByTagName('link')[0].attributes.items()[0][1] 
+        links.append(link)
+        # Find product name
+        for node in prod.getElementsByTagName('str'):
+            if len(node.attributes.items())>0:
+                (name,field)=node.attributes.items()[0]
+                if field=='filename':
+                    filename= str(node.toxml()).split('>')[1].split('<')[0]
+                    filenames.append(filename)
+                if field=='orbitdirection':
+                    orbit=str(node.toxml()).split('>')[1].split('<')[0]
+                    orbits.append(orbit)
+    
+    return links, filenames, orbits
+        
 def wget_download_star(url_out,options):
     wget_download(*url_out,options_dict=options)
     return True
