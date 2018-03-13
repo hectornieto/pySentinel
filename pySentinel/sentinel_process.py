@@ -9,7 +9,6 @@ import zipfile
 import os.path as pth
 import subprocess as sp
 import os
-import shutil
 import osr
 import glob
 import gdal
@@ -18,9 +17,9 @@ import numpy as np
 from pySentinel.gdal_merge import gdal_merge
 import re
 
-sen2CorTemplateFile = "/home/eouser/Sen2Cor_L2A_GIPP_template.xml" # Path to the default sen2cor GIPP xml
+sen2CorTemplateFile = "Sen2Cor_L2A_GIPP_template.xml" # Path to the default sen2cor GIPP xml
 C_SEN2COR_OUTPUT_DIR = "<!SEN2COR_OUTPUT_DIR!>" # Path to the default L2A folder
-sen2cor_path = pth.join('/home','eouser','Sen2Cor-2.4.0-Linux64','bin') # Path to the sen2cor binary folder
+sen2cor_bin = 'L2A_Process' # Path to the sen2cor binary file
 gptsnap_bin = 'gpt' # Path to the SNAP gpt binary file
 
 def point2pix(coords , gt, upperBound = False):
@@ -162,6 +161,154 @@ def biophysical_SNAP(input_file,
     else:
         return None  
 
+def resample_S2_LAI(lai_file, 
+                    extent, 
+                    epsg_projection, 
+                    resolution = (1000,1000), 
+                    out_file='MEM'):
+    ''' Resamples Sentinel 2 LAI product to Sentinel 3 scale by pixel aggregation
+    
+    Parameters
+    ----------
+    lai_file : string
+        path to the input Sentinel lai image
+    extent : tuple
+        output extent in projected coordinates (ul_x, ul_y, lr_x, lr_y)
+    epsg_projection : int
+        EPSG code for the output projection system
+    resolution : tuple, optional
+        output resolution, default 1km
+    out_file : string, optional
+        Output path to save the resulting resampled image
+        
+    Returns
+    -------
+    LAI : array
+        resampled Leaf Area Index    
+    '''
+    
+    geo_transform = [extent[0], resolution[0], 0, 
+                                 extent[1], 0, -resolution[1]]
+    
+    input_src = osr.SpatialReference()
+    input_src.ImportFromEPSG(epsg_projection)
+    projection = input_src.ExportToWkt()
+    # Resample Sentinel2 LAI file
+    
+    file_LAI=resample_GDAL(lai_file, 
+                               geo_transform, 
+                               projection,
+                               outFile = out_file, 
+                               band_id = 1, 
+                               noDataValue=np.nan,
+                               resampling = gdal.gdalconst.GRA_Average)
+                               
+    LAI = file_LAI.GetRasterBand(1).ReadAsArray()
+    
+    return LAI
+
+
+def sentinel3_LST_processor(toa_file, 
+                            LAI,    
+                            emis_veg = [0.98, 0.975],    
+                            emis_soil = [0.95, 0.945], 
+                            VALID_PIXEL = 1, 
+                            out_dir = None):
+    ''' Computes L2 Land Surface Temperature from Sentinel 3 L1c
+    Top of the Atmosphere product
+    
+    Parameters
+    ----------
+    toa_file : string
+        path to the L1c S3 TOA BEAM-Dimap product
+    LAI : array
+        LAI array
+    emis_veg : float
+        endmember value for pure vegetation emissivity
+    emis_soil : float
+        endmember value for bare soil emissivity
+    VALID_PIXEL : int
+        cloud-free flag value
+    out_dir : string
+        path to the output directory, if None the input folder will be used
+        
+    Returns
+    -------
+    success : bool
+        boolean that flags a successfull process
+    '''
+    
+    filename = pth.basename(toa_file)    
+    
+    if not out_dir:
+        out_dir =  pth.join(pth.dirname(toa_file), 'L2')
+    
+    if not pth.isdir(out_dir):
+        os.mkdir(out_dir)
+        
+    # Read total column water vapour
+    toa_file+='.data'
+    cloudFile=pth.join(toa_file,'cloud_in.img')
+    fid=gdal.Open(cloudFile,gdal.GA_ReadOnly)
+    cloud = fid.GetRasterBand(1).ReadAsArray()
+    fid = None
+    valid = cloud <= VALID_PIXEL
+    if not valid.any():
+        print('Not valid data found')
+        return False
+        
+    # Read total column water vapour
+    waterVapourFile=pth.join(toa_file,'total_column_water_vapour_tx.img')
+    fid=gdal.Open(waterVapourFile,gdal.GA_ReadOnly)
+    totalColumnWaterVapour = fid.GetRasterBand(1).ReadAsArray()
+    # Convert from kg/m**2 to g/cm**2
+    totalColumnWaterVapour[valid] = totalColumnWaterVapour[valid] * 0.1
+    totalColumnWaterVapour[~valid]=np.nan
+    fid = None
+    
+    # Read view zenith angles
+    viewZenithAngleFile=pth.join(toa_file,'sat_zenith_tn.img')
+    fid=gdal.Open(viewZenithAngleFile,gdal.GA_ReadOnly)
+    viewZenithAngle = fid.GetRasterBand(1).ReadAsArray()
+    viewZenithAngle[~valid]=np.nan
+    fid = None    
+    
+    # Read brightness temperatures
+    BT11_File=pth.join(toa_file,'S8_BT_in.img')
+    fid=gdal.Open(BT11_File,gdal.GA_ReadOnly)
+    bt11 = fid.GetRasterBand(1).ReadAsArray()
+    bt11[~valid]=np.nan
+    fid = None    
+   
+    # Read brightness temperatures
+    BT12_File=pth.join(toa_file,'S9_BT_in.img')
+    fid=gdal.Open(BT12_File,gdal.GA_ReadOnly)
+    bt12 = fid.GetRasterBand(1).ReadAsArray()
+    bt12[~valid]=np.nan
+    
+    LAI[~valid]=np.nan
+
+    # We assume a spherical leaf inclination distribution function
+    alpha=57.3
+    emissivity=np.zeros((LAI.shape[0],LAI.shape[1],2))
+    for i,emis_band in enumerate(zip(emis_veg, emis_soil)):
+
+        emissivity[:,:,i] = calc_emissivity_4SAIL(LAI,
+                                  viewZenithAngle,
+                                  alpha,
+                                  emis_veg=emis_band[0],
+                                  emis_soil=emis_band[1])
+    
+    brightnessTemperature=np.dstack((bt11,bt12))
+    LST=calc_LST_Sobrino(brightnessTemperature, emissivity, totalColumnWaterVapour, viewZenithAngle)
+    LST[~valid]=np.nan
+    
+    outPath=pth.join(out_dir,'%s_LST_n.tif'%(filename.replace('SL_1_RBT','SL_2_RBT')))
+    saveImg (np.dstack((LST,emissivity[:,:,0],emissivity[:,:,1])), fid.GetGeoTransform(), fid.GetProjection(), outPath, noDataValue =np.nan)
+    fid = None
+    
+    return True
+
 def calc_emissivity_4SAIL(lai,vza,alpha,emis_veg=0.98,emis_soil=0.95,tau=0.0):
     ''' Estimates surface directional emissivity using 4SAIL Radiative Transfer Model
     
@@ -200,19 +347,22 @@ def calc_emissivity_4SAIL(lai,vza,alpha,emis_veg=0.98,emis_soil=0.95,tau=0.0):
     hotspot,sza,psi=np.zeros(lai.shape),np.zeros(lai.shape),np.zeros(lai.shape)
     
     lidf=sail.CalcLIDF_Campbell_vec(alpha,n_elements=18)
-    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,rdot,_,_,_,_,_,_] = sail.FourSAIL_vec(lai,
-                                                                    hotspot,
-                                                                    lidf,
-                                                                    sza,
-                                                                    vza,
-                                                                    psi,
-                                                                    np.ones(lai.shape)[np.newaxis,:]-emis_veg,
-                                                                    np.zeros(lai.shape)[np.newaxis,:],
-                                                                    np.ones(lai.shape)[np.newaxis,:]-emis_soil)
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,rdot,_,_,_,_,_,_] = sail.FourSAIL_vec(
+                                    lai,
+                                    hotspot,
+                                    lidf,
+                                    sza,
+                                    vza,
+                                    psi,
+                                    np.ones(lai.shape)[np.newaxis,:]-emis_veg,
+                                    np.zeros(lai.shape)[np.newaxis,:],
+                                    np.ones(lai.shape)[np.newaxis,:]-emis_soil)
+    
     # Kirchoff law
     emissivity=1.0-rdot
     # Convert output vector to original array
     emissivity=emissivity.reshape(dims)
+    
     return emissivity
 
 def calc_LST_Sobrino(BT, emissivity, totalColumnWaterVapour, viewZenithAngle):
@@ -233,13 +383,20 @@ def calc_LST_Sobrino(BT, emissivity, totalColumnWaterVapour, viewZenithAngle):
     -------
     emissivity : array_like
         surface directional emissivity
+    
+    References
+    ----------
+    .. [Sobrino2015] Sobrino JA, Jimenez-Munoz JC, Soria G, Brockmann C, Ruescas A, 
+      Danne O, North P, Phillipe P, Berger M, Merchant C, Ghent D. 
+      A Prototype Algorithm for Land Surface Temperature Retrieval from 
+      Sentinel-3 Mission. In Sentinel-3 for Science Workshop 2015 Dec (Vol. 734, p. 38).
     '''
     
     W = totalColumnWaterVapour/np.cos(np.radians(viewZenithAngle))
     eps = (emissivity[:,:,0] + emissivity[:,:,1])/2
     deltaEps = emissivity[:,:,0] - emissivity[:,:,1]
     
-    # constants from Table 1
+    # constants from Table 1 [Sobrino2015]
     c0 = -0.268
     c1 = 1.084
     c2 = 0.2771
@@ -248,7 +405,7 @@ def calc_LST_Sobrino(BT, emissivity, totalColumnWaterVapour, viewZenithAngle):
     c5 = -125.0
     c6 = 16.7
     
-    # Equation (1)
+    # Equation (1) [Sobrino2015]
     LST = (BT[:,:,0] + c1*(BT[:,:,0]-BT[:,:,1]) + c2*(BT[:,:,0]-BT[:,:,1])**2 + c0 +
            (c3 + c4*W)*(1 - eps) + (c5 + c6*W)*deltaEps)
     LST[np.isnan(LST)] = 0.0    
@@ -845,7 +1002,7 @@ def sen2cor(args):
     resolution = args[2]
     
     print("Calling Sen2Cor for %s" %l1c_file)
-    command = [pth.join(sen2cor_path,'L2A_Process'), "--resolution", str(resolution), "--GIP_L2A", sen2CorGippFile, l1c_file]
+    command = [sen2cor_bin, "--resolution", str(resolution), "--GIP_L2A", sen2CorGippFile, l1c_file]
     print(" ".join(command))
     progress = sp.Popen(" ".join(command),
                                 shell=True,
