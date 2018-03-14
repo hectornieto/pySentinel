@@ -14,9 +14,9 @@ def get_sen2cor_template():
         <!-- can be: NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL -->
         <Nr_Processes>7</Nr_Processes>
         <!-- can be an unsigned integer value specifying the number or processes you intend to operate in parallel or: AUTO. If AUTO is chosen, the processor determines the number of processes automatically, using cpu_count() -->
-        <Target_Directory>%></Target_Directory>
+        <Target_Directory>%s</Target_Directory>
         <!-- should be either a directory or 'DEFAULT'. If default, target will be created at root of L1C product -->
-        <DEM_Directory>/mnt/ET/DEM</DEM_Directory>
+        <DEM_Directory>~/DEM</DEM_Directory>
         <!-- should be either a directory in the sen2cor home folder or 'NONE'. If NONE, no DEM will be used -->
         <DEM_Reference>http://data_public:GDdci@data.cgiar-csi.org/srtm/tiles/GeoTIFF/</DEM_Reference>
         <!-- will be ignored if DEM is NONE. A SRTM DEM will be downloaded from this reference, if no local DEM is available -->
