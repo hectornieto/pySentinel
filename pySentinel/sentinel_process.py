@@ -16,11 +16,10 @@ from pyPro4Sail import FourSAIL as sail
 import numpy as np
 from pySentinel.gdal_merge import gdal_merge
 from pySentinel.sen2cor_gipp_template import get_sen2cor_template
-import re
 
-C_SEN2COR_OUTPUT_DIR = "<!SEN2COR_OUTPUT_DIR!>" # Path to the default L2A folder
-sen2cor_bin = 'L2A_Process' # Path to the sen2cor binary file
-gptsnap_bin = 'gpt' # Path to the SNAP gpt binary file
+# Modify these two variables if needed (only if sen2cor and gpt binaries are not included in the PATH)
+SEN2COR_BIN = 'L2A_Process' # Path to the sen2cor binary file
+GPTSNAP_BIN = 'gpt' # Path to the SNAP gpt binary file
 
 def point2pix(coords , gt, upperBound = False):
     ''' Convert map coordinates into pixel coordinates
@@ -147,7 +146,7 @@ def biophysical_SNAP(input_file,
     
     if not output_file:
         output_file=pth.splitext(input_file)[0]+'_biophysical'
-    biophysical='%s biophysicalOp -SsourceProduct="%s.dim" -PcomputeLAI=%s -PcomputeFapar=%s -PcomputeCab=%s -PcomputeCw=%s -PcomputeFcover=%s -t "%s" -q %s'%(gptsnap_bin,input_file,calcLAI,calcFAPAR,calcCab,CalcCw,CalcFVC,output_file,str(paralellism)) 
+    biophysical='%s biophysicalOp -SsourceProduct="%s.dim" -PcomputeLAI=%s -PcomputeFapar=%s -PcomputeCab=%s -PcomputeCw=%s -PcomputeFcover=%s -t "%s" -q %s'%(GPTSNAP_BIN,input_file,calcLAI,calcFAPAR,calcCab,CalcCw,CalcFVC,output_file,str(paralellism)) 
     print('Estimating Biophysical file '+input_file)
     proc=sp.Popen(biophysical,shell=True,stdout=sp.PIPE,
                                stdin=sp.PIPE,stderr=sp.STDOUT,universal_newlines=True)
@@ -527,7 +526,7 @@ def mosaic_SNAP(product_list,
         number of CPUs to be use in parallelization
     '''
     
-    mosaic='%s Mosaic -Pcrs=%s -PpixelSizeX=%s -PpixelSizeY=%s -q %s'%(gptsnap_bin,crs,resolution,resolution,paralellism)
+    mosaic='%s Mosaic -Pcrs=%s -PpixelSizeX=%s -PpixelSizeY=%s -q %s'%(GPTSNAP_BIN,crs,resolution,resolution,paralellism)
     mosaic+=' -PwestBound=%s -PsouthBound=%s -PeastBound=%s -PnorthBound=%s'%(bounds)
     if variables:
         mosaic+=' -Pvariables='
@@ -851,7 +850,7 @@ def reproject_S3_SNAP(input_file,
         
     input_xml_file=pth.join(input_file,'xfdumanifest.xml')
     
-    reproject='%s %s -PslstrFile="%s" -q %s'%(gptsnap_bin,graph_file, input_xml_file,paralellism)
+    reproject='%s %s -PslstrFile="%s" -q %s'%(GPTSNAP_BIN,graph_file, input_xml_file,paralellism)
     
     if not output_file:
         output_file=input_file+'_reproject'
@@ -944,7 +943,7 @@ def resample_SNAP(input_file,
     
     if not output_file:
         output_file=pth.splitext(input_file)[0]+'_resample_%sm'%(resolution)
-    resample='%s resample -SsourceProduct="%s" -PtargetResolution=%s -Pupsampling=%s -Pdownsampling=%s -t "%s" -q %s'%(gptsnap_bin,input_file,resolution,upsampling,downsampling,output_file,paralellism) 
+    resample='%s resample -SsourceProduct="%s" -PtargetResolution=%s -Pupsampling=%s -Pdownsampling=%s -t "%s" -q %s'%(GPTSNAP_BIN,input_file,resolution,upsampling,downsampling,output_file,paralellism) 
     print('Resampling file '+input_file)
     proc=sp.Popen(resample,shell=True,stdout=sp.PIPE,
                                stdin=sp.PIPE,stderr=sp.STDOUT,universal_newlines=True)
@@ -1004,7 +1003,7 @@ def sen2cor(args):
     resolution = args[2]
     
     print("Calling Sen2Cor for %s" %l1c_file)
-    command = [sen2cor_bin, "--resolution", str(resolution), "--GIP_L2A", sen2CorGippFile, l1c_file]
+    command = [SEN2COR_BIN, "--resolution", str(resolution), "--GIP_L2A", sen2CorGippFile, l1c_file]
     print(" ".join(command))
     progress = sp.Popen(" ".join(command),
                                 shell=True,
@@ -1084,16 +1083,3 @@ def _check_default_parameter_size(parameter, input_array):
             (parameter.shape, input_array.shape))
     else:
         return np.asarray(parameter)
-    
-def _setGraphPlaceholder(graph, placeholder, replacement):
-    while re.search(placeholder, graph):
-        rep = _handleVaryingPlaceholder(graph, placeholder, replacement)
-        graph = re.sub(placeholder, rep, graph, count=1)
-    return graph
-
-# Handle placeholders which might have a varying ending (e.g. C_OUTPUT_FILE)
-def _handleVaryingPlaceholder(graph, placeholder, replacement):
-    match = re.search(placeholder, graph)
-    if match and match.lastindex == 1:
-        replacement = os.path.splitext(replacement)[0] + match.group(2) + os.path.splitext(replacement)[1]
-    return replacement
