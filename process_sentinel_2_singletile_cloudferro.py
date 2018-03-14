@@ -107,8 +107,8 @@ for filename in file_list:
         # Setting-up multiprocessing of several Sen2Cor instances
         pool = multiprocessing.Pool(nproc)
         # Prepare sen2cor configuration, L2A will be produced at the output dir
-        sen2CorGippFile = re.sub("_template", "", sen.sen2CorTemplateFile)
-        sen.prepareSen2CorGippFile(sen.sen2CorTemplateFile, sen2CorGippFile, outdir)
+        sen2CorGippFile = pth.join(workdir, 'Sen2Cor_L2A_GIPP.xml')
+        sen.prepareSen2CorGippFile(sen2CorGippFile, outdir)
         l1c_file=pth.join(clouddir,filename) # Full path of the input L1c file
         print(test_filename)
         if pth.exists(l1c_file) :  

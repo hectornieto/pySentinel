@@ -62,8 +62,8 @@ for date in dates:
     print("S2 atmospheric correction...")
     pool = multiprocessing.Pool(nproc)
     jobArgs=[]        
-    sen2CorGippFile = re.sub("_template", "", sen.sen2CorTemplateFile)
-    sen.prepareSen2CorGippFile(sen.sen2CorTemplateFile, sen2CorGippFile, workdir)
+    sen2CorGippFile = pth.join(workdir,'Sen2Cor_L2A_GIPP.xml')
+    sen.prepareSen2CorGippFile(sen2CorGippFile, workdir)
     l2a_files=[]
     for tile in valid_tiles:
        	l1c_file=glob.glob(pth.join(clouddir,'S2?_MSIL1C_%sT??????_N????_R???_%s_*.SAFE'%(date,tile)))
