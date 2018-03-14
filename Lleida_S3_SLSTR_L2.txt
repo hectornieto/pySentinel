@@ -1,0 +1,10 @@
+platformname=Sentinel-3 
+footprint=%22Intersects(POLYGON((0.32 42.40 , 1.70 42.40 , 1.70 41.21 , 0.32 41.21 , 0.32 42.40)))%22 
+server=https://scihub.copernicus.eu/s3 
+user=s3guest 
+password=s3guest 
+instrumentshortname=SLSTR 
+productlevel=L2 
+orbitdirection=descending 
+beginPosition=[2017-06-30T00:00:00.000Z TO 2017-06-30T23:59:59.999Z] 
+endPosition=[2017-06-30T00:00:00.000Z TO 2017-06-30T23:59:59.999Z] 

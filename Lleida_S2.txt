@@ -1,0 +1,8 @@
+platformname=Sentinel-2
+footprint=%22Intersects(POLYGON((0.32 42.40 , 1.70 42.40 , 1.70 41.21 , 0.32 41.21 , 0.32 42.40)))%22
+beginPosition=[NOW-20DAYS TO NOW]
+server=https://scihub.copernicus.eu/apihub
+user=<username>
+password=<password>
+filename=_N\d{4}_R\d{3}_T31
+producttype=S2MSI1C
