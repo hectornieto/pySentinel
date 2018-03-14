@@ -15,9 +15,9 @@ import gdal
 from pyPro4Sail import FourSAIL as sail 
 import numpy as np
 from pySentinel.gdal_merge import gdal_merge
+from pySentinel.sen2cor_gipp_template import get_sen2cor_template
 import re
 
-sen2CorTemplateFile = "Sen2Cor_L2A_GIPP_template.xml" # Path to the default sen2cor GIPP xml
 C_SEN2COR_OUTPUT_DIR = "<!SEN2COR_OUTPUT_DIR!>" # Path to the default L2A folder
 sen2cor_bin = 'L2A_Process' # Path to the sen2cor binary file
 gptsnap_bin = 'gpt' # Path to the SNAP gpt binary file
@@ -988,10 +988,12 @@ def safe_unzip(zip_file, extractpath='.'):
             if abspath.startswith(os.path.abspath(extractpath)):
                 zf.extract(member, extractpath)
                 
-def prepareSen2CorGippFile(templateFile, gippFile, outdir):
-    with open(templateFile) as template, open(gippFile, 'w') as gf:
-        gipp = template.read()
-        gipp = _setGraphPlaceholder(gipp, C_SEN2COR_OUTPUT_DIR, outdir)
+def prepareSen2CorGippFile(gippFile, outdir):
+    # Get the template xml text
+    template_xml = get_sen2cor_template()
+    
+    with open(gippFile, 'w') as gf:
+        gipp = template_xml%(outdir)
         gf.write(gipp)    # Prepare Sen2Cor GIPP file for each date
     
 def sen2cor(args):
