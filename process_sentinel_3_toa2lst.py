@@ -5,7 +5,7 @@ Created on Tue Mar 14 09:20:01 2017
 @author: hnieto
 """
 
-from pySentinel.sentinel_download import sentinel_configuration_download
+from pySentinel.sentinel_download import sentinel_configuration_download, parse_sentinel_hub_query, wget_download
 import pySentinel.sentinel_process as sen
 import os
 import os.path as pth
@@ -20,6 +20,7 @@ site = 'Borden'
 emis_veg = [0.98, 0.975]   
 emis_soil = [0.95, 0.945]
 workdir=os.getcwd()
+
 
 platformname = 'Sentinel-3'
 footprint_template = '"Intersects(POLYGON((%s %s,%s %s,%s %s,%s %s,%s %s)))"'
@@ -132,9 +133,25 @@ def write_query_file(query_file, date_query, footprint):
     fid.close()
     
 if __name__=='__main__':
-
+    
+    # Get the list of S2 files processed
     file_list = glob.glob(pth.join(workdir, 'S2', site, '*.data'))
     
+    output_dir = pth.join(workdir, 'S3', site)
+    if not pth.isdir(output_dir):
+        os.mkdir(output_dir)
+    
+    # Get the list of already processed files
+    processed_files=[]
+    if not pth.isfile(pth.join(output_dir,'processed_%s.txt'%site)):
+        logfid=open(pth.join(output_dir,'processed_%s.txt'%site),'w')
+        logfid.close()
+    else:
+        logfid=open(pth.join(output_dir,'processed_%s.txt'%site),'r')
+        for line in logfid.readlines():
+            processed_files.append(line.rstrip('\n').rstrip('\r'))
+        logfid.close()
+        
     for s2_file in file_list:
     
         date_query, input_epsg, extent = get_sentinel2_date_extent(s2_file)
@@ -146,64 +163,50 @@ if __name__=='__main__':
         test.get_query_command()
         wget_opts = {'user': test.config_data['user'],
                      'password': test.config_data['password']}
-        
-        output_dir = pth.join(workdir, 'S3', site)
-        if not pth.isdir(output_dir):
-            os.mkdir(output_dir)
-        
-#==============================================================================
-#         test.download_query_products(output_dir,wget_opts,logfile=None)
-#         
-#         date_str = date_query.replace('-','')
-#         download_list =  glob.glob(pth.join(output_dir, 'S3?_SL_2_LST____%sT*.zip'%date_str)) 
-#         
-#         for input_file in download_list:
-#             input_file=input_file.replace('.zip','')
-#             output_file = sen.reproject_S3_SNAP(input_file,
-#                                           input_epsg,
-#                                           [1000,1000],
-#                                           extent=extent,
-#                                           output_file=None,
-#                                           paralellism=120)
-#            
-#             if pth.exists(output_file+'.data'):
-#                 sen.delete_DIMAP_bands(output_file, l2_band_list)
-#                 #shutil.rmtree(input_file)
-#                 os.remove(input_file+'.zip')
-#==============================================================================
-        
+
         # Download L1 S3 data
         test.config_data['productlevel'] = 'L1'
         test.get_query_command()
-        test.download_query_products(output_dir,wget_opts,logfile=None)
+        links, filenames, orbits = parse_sentinel_hub_query(test.query_file)
         
-        date_str = date_query.replace('-','')
-        download_list =  glob.glob(pth.join(output_dir, 'S3?_SL_1_RBT____%sT*.zip'%date_str)) 
-        
-        for input_file in download_list:
-            input_file=input_file.replace('.zip','')
-                  
-            output_file = sen.reproject_S3_SNAP(input_file,
-                                          input_epsg,
-                                          resolution,
-                                          extent=extent,
-                                          output_file=None,
-                                          paralellism=120)
-           
-            if pth.exists(output_file+'.data'):
-                sen.delete_DIMAP_bands(output_file, l1_band_list)
-                shutil.rmtree(input_file)
-                os.remove(input_file+'.zip')
+        for link, filename, orbit in zip(links, filenames, orbits):
+            
+            input_file=pth.join(output_dir,filename)
+            test_filename = filename.rstrip('.zip')[16:]
+            
+            if test_filename not in processed_files and orbit == orbitdirection:
                 
-                LAI = sen.resample_S2_LAI(pth.join(s2_file,'lai.img'), 
-                                      extent, 
-                                      input_epsg, 
-                                      resolution=resolution, 
-                                      out_file=pth.join(output_file+'.data', 'LAI_S2.tif'))
-
-                sen.sentinel3_LST_processor(output_file, 
-                                        LAI,    
-                                        emis_veg = emis_veg,    
-                                        emis_soil = emis_soil, 
-                                        VALID_PIXEL = 1, 
-                                        out_dir = None)
+                if not pth.isfile(input_file+'.zip'):
+                    wget_download(link,input_file,options_dict=wget_opts)
+        
+                date_str = date_query.replace('-','')
+                     
+                output_file = sen.reproject_S3_SNAP(input_file,
+                                              input_epsg,
+                                              resolution,
+                                              extent=extent,
+                                              output_file=None,
+                                              paralellism=120)
+               
+                if pth.exists(output_file+'.data'):
+                    sen.delete_DIMAP_bands(output_file, l1_band_list)
+                    shutil.rmtree(input_file)
+                    os.remove(input_file+'.zip')
+                    
+                    LAI = sen.resample_S2_LAI(pth.join(s2_file,'lai.img'), 
+                                          extent, 
+                                          input_epsg, 
+                                          resolution=resolution, 
+                                          out_file=pth.join(output_file+'.data', 'LAI_S2.tif'))
+    
+                    sen.sentinel3_LST_processor(output_file, 
+                                            LAI,    
+                                            emis_veg = emis_veg,    
+                                            emis_soil = emis_soil, 
+                                            VALID_PIXEL = 1, 
+                                            out_dir = None)
+                    
+                    logfid=open(pth.join(output_dir,'processed_%s.txt'%site),'a')
+                    logfid.write('\n'+test_filename)
+                    logfid.flush()
+                    logfid.close()
