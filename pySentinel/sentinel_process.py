@@ -18,8 +18,8 @@ from pySentinel.gdal_merge import gdal_merge
 from pySentinel.sen2cor_gipp_template import get_sen2cor_template
 
 # Modify these two variables if needed (only if sen2cor and gpt binaries are not included in the PATH)
-SEN2COR_BIN = 'L2A_Process' # Path to the sen2cor binary file
-GPTSNAP_BIN = 'gpt' # Path to the SNAP gpt binary file
+SEN2COR_BIN = '/home/hector/sen2cor/Sen2Cor-2.4.0-Linux64/bin/L2A_Process ' # Path to the sen2cor binary file
+GPTSNAP_BIN = '/home/hector/snap/bin/gpt' # Path to the SNAP gpt binary file
 
 def point2pix(coords , gt, upperBound = False):
     ''' Convert map coordinates into pixel coordinates
@@ -193,7 +193,6 @@ def resample_S2_LAI(lai_file,
     input_src.ImportFromEPSG(epsg_projection)
     projection = input_src.ExportToWkt()
     # Resample Sentinel2 LAI file
-    
     file_LAI=resample_GDAL(lai_file, 
                                geo_transform, 
                                projection,
@@ -973,7 +972,8 @@ def resample_GDAL(inFile,
     fileOrig = saveImg(data, gtOrig, projInfoOrig, "MEM")
     # Set Input noData value
     fileOrig.GetRasterBand(1).SetNoDataValue(noDataValue)
-    shapeNew = (round(data.shape[0]*gtOrig[1]/gtNew[1]), round(data.shape[1]*gtOrig[5]/gtNew[5]))   
+    shapeNew = (int(round(data.shape[0]*gtOrig[1]/gtNew[1])), int(round(data.shape[1]*gtOrig[5]/gtNew[5])))
+
     fileNew = saveImg(np.empty(shapeNew)*np.nan, gtNew, projInfoNew, outFile)
     gdal.ReprojectImage(fileOrig, fileNew, projInfoOrig, projInfoNew, resampling)
     fileOrig = None    
