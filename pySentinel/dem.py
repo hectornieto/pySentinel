@@ -196,26 +196,29 @@ def process_topography_for_s2_tile(s2_file_path, dem_folder = None):
         dem_folder = pth.dirname(s2_file_path)
         
     dem_file = process_dem_for_s2_tile(s2_file_path, dem_folder)
-
+    
     basename = pth.basename(dem_file)    
     
     slope_file = pth.join(dem_folder, basename.replace('DEM', 'slope'))
-    slope_from_dem(dem_file, output = slope_file, scale = 1)
+    if not pth.isfile(slope_file):
+        slope_from_dem(dem_file, output = slope_file, scale = 1)
     
     aspect_file = pth.join(dem_folder,basename.replace('DEM', 'aspect'))
-    aspect_from_dem(dem_file, output = aspect_file, scale = 1)
+    if not pth.isfile(aspect_file):
+        aspect_from_dem(dem_file, output = aspect_file, scale = 1)
     
     dem_lr_file = pth.join(dem_folder,basename.replace('HR', 'LR'))
     
-    fid = gdal.Open(s2_file_path, gdal.GA_ReadOnly)
-    gt = fid.GetGeoTransform()
-    prj = fid.GetProjection()
-    gt_new = [gt[0], 1000, 0, gt[3], 0, -1000]
-    
-    gu.resample_file(dem_file, 
-                      gt_new , 
-                      prj, 
-                      noDataValue=-99999,
-                      outFile = dem_lr_file, 
-                      band_id=1, 
-                      resampling = gdal.gdalconst.GRA_Average)
+    if not pth.isfile(dem_lr_file):
+        fid = gdal.Open(s2_file_path, gdal.GA_ReadOnly)
+        gt = fid.GetGeoTransform()
+        prj = fid.GetProjection()
+        gt_new = [gt[0], 1000, 0, gt[3], 0, -1000]
+        
+        gu.resample_file(dem_file, 
+                          gt_new , 
+                          prj, 
+                          noDataValue=-99999,
+                          outFile = dem_lr_file, 
+                          band_id=1, 
+                          resampling = gdal.gdalconst.GRA_Average)
