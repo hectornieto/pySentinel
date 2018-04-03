@@ -22,6 +22,38 @@ __version__ = '$id$'[5:-1]
 verbose = 0
 quiet = 0
 
+def resample_array (data,
+                   gt_in,
+                   prj_in,
+                   gt_out = None,
+                   prj_out = None,
+                   shape_out = None,
+                   outname = 'MEM',
+                   resampling = gdal.gdalconst.GRA_Bilinear):
+    
+    infid = save_img (data, 
+                      gt_in, 
+                      prj_in, 
+                      'MEM', 
+                      noDataValue = np.nan, 
+                      dtype=gdal.GDT_Float32)
+    if not gt_out:
+        gt_out = gt_in
+        
+    if not prj_out:
+        prj_out = prj_in
+    
+    if not shape_out:
+        shape_out = data.shape
+    
+    
+    outfid = save_img(np.empty(shape_out)*np.nan, gt_out, prj_out, outname)
+    gdal.ReprojectImage(infid, outfid, prj_in, prj_out, resampling)
+    infid = None    
+
+    data = outfid.GetRasterBand(1).ReadAsArray()
+    return data
+
 def resample_file(inFile, 
                   gtNew , 
                   projInfoNew, 
