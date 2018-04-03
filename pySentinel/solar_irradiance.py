@@ -252,7 +252,7 @@ def get_solar_irradiance_and_incidence(s3_image,
     
     # Obtain pixel coordinates
     x_s3, y_s3 = gu.get_coordinates_image(shape_s3, geo_s3)    
-    lon_s3, lat_s3 = gu.convert_cooordinate_array((x_s3, y_s3), 
+    lon_s3, lat_s3 = gu.convert_coordinate_array((x_s3, y_s3), 
                                                s3_epsg, 
                                                output_EPSG=4326)
     
@@ -311,7 +311,7 @@ def get_solar_irradiance_and_incidence(s3_image,
     press = calc_pressure(dem_lr)
     
     x_s2, y_s2 = gu.get_coordinates_image(mask.shape, geo_s2)    
-    lon_s2, lat_s2 = gu.convert_cooordinate_array((x_s2, y_s2), 
+    lon_s2, lat_s2 = gu.convert_coordinate_array((x_s2, y_s2), 
                                                s2_epsg, 
                                                output_EPSG=4326)
     
