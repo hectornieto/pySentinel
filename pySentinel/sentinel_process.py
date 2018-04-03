@@ -1013,10 +1013,7 @@ def sen2cor(args):
                                 stderr=sp.STDOUT,).stdout
     for line in iter(progress.readline, ''):
         print(line)
-
-def sen2lai_worker(args):
-    sen2lai(*args)
-    
+   
 def sen2lai(l2a_file, 
             resolution=10, 
             calcLAI=True,
