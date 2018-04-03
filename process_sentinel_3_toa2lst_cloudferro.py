@@ -5,7 +5,7 @@ Created on Tue Mar 14 09:20:01 2017
 @author: hnieto
 """
 
-#from pySentinel.sentinel_download import sentinel_configuration_download
+from pySentinel.sentinel_download import sentinel_configuration_download, parse_sentinel_hub_query
 import pySentinel.sentinel_process as sen
 import os
 import os.path as pth

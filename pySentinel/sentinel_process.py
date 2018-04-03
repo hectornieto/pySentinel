@@ -14,7 +14,7 @@ import glob
 import gdal
 from pyPro4Sail import FourSAIL as sail 
 import numpy as np
-from pySentinel.gdal_merge import gdal_merge
+import pySentinel.gdal_utils as gu
 from pySentinel.sen2cor_gipp_template import get_sen2cor_template
 
 # Modify these two variables if needed (only if sen2cor and gpt binaries are not included in the PATH)
@@ -193,7 +193,7 @@ def resample_S2_LAI(lai_file,
     input_src.ImportFromEPSG(epsg_projection)
     projection = input_src.ExportToWkt()
     # Resample Sentinel2 LAI file
-    file_LAI=resample_GDAL(lai_file, 
+    file_LAI=gu.resample_file(lai_file, 
                                geo_transform, 
                                projection,
                                outFile = out_file, 
@@ -302,7 +302,11 @@ def sentinel3_LST_processor(toa_file,
     LST[~valid]=np.nan
     
     outPath=pth.join(out_dir,'%s_LST_n.tif'%(filename.replace('SL_1_RBT','SL_2_RBT')))
-    saveImg (np.dstack((LST,emissivity[:,:,0],emissivity[:,:,1])), fid.GetGeoTransform(), fid.GetProjection(), outPath, noDataValue =np.nan)
+    gu.save_img (np.dstack((LST,emissivity[:,:,0],emissivity[:,:,1])), 
+                            fid.GetGeoTransform(), 
+                            fid.GetProjection(), 
+                            outPath, 
+                            noDataValue =np.nan)
     fid = None
     
     return True
@@ -409,47 +413,6 @@ def calc_LST_Sobrino(BT, emissivity, totalColumnWaterVapour, viewZenithAngle):
     LST[np.isnan(LST)] = 0.0    
     LST[LST<0] = 0.0
     return LST	
-
-def coordinate_convert(X_in,Y_in,inputEPSG,outputEPSG,Z_in=0):
-    ''' Coordinate conversion between two coordinate systems
-    
-    Parameters
-    ----------
-    X_in : float
-        input X coordinate
-    Y_in : float
-        input Y coordinate
-    inputEPSG : int
-        EPSG coordinate code of input coordinates
-    outputEPSG : int
-       EPSG coordinate code of output coordinates
-    Z_in : float
-        input altitude, default=0
-        
-    Returns
-    -------
-    X_out : float
-        output X coordinate    
-    Y_out : float
-        output X coordinate    
-    Z_out : float
-        output X coordinate   
-    '''
-    
-    # create coordinate transformation
-    inSpatialRef = osr.SpatialReference()
-    inSpatialRef.ImportFromEPSG(inputEPSG)
-
-    outSpatialRef = osr.SpatialReference()
-    outSpatialRef.ImportFromEPSG(outputEPSG)
-
-    coordTransform = osr.CoordinateTransformation(inSpatialRef, outSpatialRef)
-
-    # transform point
-    X_out,Y_out,Z_out=coordTransform.TransformPoint(X_in,Y_in,Z_in)
-    
-    # print point in EPSG 4326
-    return X_out, Y_out, Z_out
 
 def create_binary_mask(input_array, valid_values=[1]):
     ''' Creates a binary array masking out a list of values
@@ -707,10 +670,19 @@ def mosaic_sentinel_SAGA(product_list,
     # Run gdal merge to stack all single band mosaics (filelist,PCT,SEPARATE,RTYPE,OUTPUT
     print('Stacking all mosaic bands in a sigle file')
     if extent:
-        gdal_merge( output_file, mosaic_list, ul_lr = extent, separate = True, nodata = np.nan, a_nodata = -99999)
+        gu.gdal_merge(output_file, 
+                      mosaic_list, 
+                      ul_lr = extent, 
+                      separate = True, 
+                      nodata = np.nan, 
+                      a_nodata = -99999)
 
     else:
-        gdal_merge( output_file, mosaic_list, separate = True,nodata = np.nan, a_nodata = -99999)
+        gu.gdal_merge(output_file, 
+                      mosaic_list, 
+                      separate = True,
+                      nodata = np.nan,
+                      a_nodata = -99999)
    
     
     tmpfiles=glob.glob(pth.join(workdir,'tmp','*'))
@@ -955,30 +927,6 @@ def resample_SNAP(input_file,
         return output_file
     else:
         return None    
-
-def resample_GDAL(inFile, 
-                  gtNew , 
-                  projInfoNew, 
-                  noDataValue=-99999,
-                  outFile = "MEM", 
-                  band_id=1, 
-                  resampling = gdal.gdalconst.GRA_NearestNeighbour):
-    
-    fid=gdal.Open(inFile, gdal.GA_ReadOnly)
-    gtOrig=fid.GetGeoTransform()
-    projInfoOrig=fid.GetProjection()
-    data=fid.GetRasterBand(band_id).ReadAsArray()
-    fid = None
-    fileOrig = saveImg(data, gtOrig, projInfoOrig, "MEM")
-    # Set Input noData value
-    fileOrig.GetRasterBand(1).SetNoDataValue(noDataValue)
-    shapeNew = (int(round(data.shape[0]*gtOrig[1]/gtNew[1])), int(round(data.shape[1]*gtOrig[5]/gtNew[5])))
-
-    fileNew = saveImg(np.empty(shapeNew)*np.nan, gtNew, projInfoNew, outFile)
-    gdal.ReprojectImage(fileOrig, fileNew, projInfoOrig, projInfoNew, resampling)
-    fileOrig = None    
-    
-    return fileNew
     
 def safe_unzip(zip_file, extractpath='.'):
     with zipfile.ZipFile(zip_file, 'r') as zf:
@@ -1038,35 +986,6 @@ def sen2lai(l2a_file,
             l2b_file=biophysical_SNAP(l2a_resample,calcLAI=calcLAI,calcFAPAR=calcFAPAR,calcCab=calcCab,CalcCw=CalcCw,CalcFVC=CalcFVC,output_file=l2b_file,paralellism=paralellism)
         
     return l2b_file
-	
-def saveImg (data, geotransform, proj, outPath, noDataValue = np.nan, dtype=gdal.GDT_Float32):
-    
-    # Start the gdal driver for GeoTIFF
-    if outPath == "MEM":
-        driver = gdal.GetDriverByName("MEM")
-        driverOpt = []
-    else:
-        driver = gdal.GetDriverByName("GTiff")
-        driverOpt = ['COMPRESS=DEFLATE', 'PREDICTOR=1', 'BIGTIFF=IF_SAFER']  
-    
-    shape=data.shape
-    if len(shape) > 2:
-        ds = driver.Create(outPath, shape[1], shape[0], shape[2], dtype, driverOpt)
-        ds.SetProjection(proj)
-        ds.SetGeoTransform(geotransform)
-        for i in range(shape[2]):
-            ds.GetRasterBand(i+1).WriteArray(data[:,:,i])  
-            ds.GetRasterBand(i+1).SetNoDataValue(noDataValue)
-    else:
-        ds = driver.Create(outPath, shape[1], shape[0], 1, dtype)
-        ds.SetProjection(proj)
-        ds.SetGeoTransform(geotransform)
-        ds.GetRasterBand(1).WriteArray(data)
-        ds.GetRasterBand(1).SetNoDataValue(noDataValue)
-        
-    print('Saved ' +outPath )
-
-    return ds
 
 def _check_default_parameter_size(parameter, input_array):
 

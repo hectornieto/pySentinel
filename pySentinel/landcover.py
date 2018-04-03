@@ -6,9 +6,8 @@ Created on Mon Apr  2 10:29:31 2018
 """
 
 import numpy as np
-from pySentinel import sentinel_process as sen
+from pySentinel import gdal_utils as gu
 import os.path as pth
-import os
 import gdal
 
 
@@ -69,7 +68,7 @@ def create_static_maps(land_cover_file, output_basename):
         dtype = gdal.GDT_Float32
         if variable == 'IGBP':
             dtype = gdal.GDT_Byte
-        sen.saveImg(image, 
+        gu.save_img(image, 
                     geo, 
                     prj, 
                     outfile, 
@@ -77,41 +76,7 @@ def create_static_maps(land_cover_file, output_basename):
                     dtype = dtype)       
         
         del image
-          
-def reproject_file_GDAL (input_file_path,
-                   gt_out = None,
-                   prj_out = None,
-                   shape_out = None,
-                   outname = 'MEM',
-                   resampling = gdal.gdalconst.GRA_NearestNeighbour):
-
-
-    infid =  gdal.Open(input_file_path, gdal.GA_ReadOnly)
-    prj_in = infid.GetProjection()
-    gt_in =  infid. GetGeoTransform()
-    data = infid.GetRasterBand(1).ReadAsArray().astype(np.uint8)
-
-    if not gt_out:
-        gt_out = gt_in
-        
-    if not prj_out:
-        prj_out = prj_in
-    
-    if not shape_out:
-        shape_out = data.shape
-    
-    
-    outfid = sen.saveImg(np.empty(shape_out)*np.nan, 
-                         gt_out, 
-                         prj_out, 
-                         outname,
-                         dtype = gdal.GDT_UInt16)
-                         
-    gdal.ReprojectImage(infid, outfid, prj_in, prj_out, resampling)
-    del infid
-    del outfid
-
-
+ 
 def process_landcover_for_s2_tile(s2_file_path, 
                                    land_cover_file, 
                                    outdir = None):
@@ -133,12 +98,12 @@ def process_landcover_for_s2_tile(s2_file_path,
     del fid
     
     # Reproject the land cover
-    reproject_file_GDAL (land_cover_file,
-                   gt_out = gt_out,
-                   prj_out = prj_out,
-                   shape_out = shape_out,
-                   outname = outfile_basename,
-                   resampling = gdal.gdalconst.GRA_NearestNeighbour)    
+    gu.reproject_file(land_cover_file,
+                       gt_out = gt_out,
+                       prj_out = prj_out,
+                       shape_out = shape_out,
+                       outname = outfile_basename,
+                       resampling = gdal.gdalconst.GRA_NearestNeighbour)    
     
     # Create statick LUT values
     create_static_maps(outfile_basename, pth.splitext(outfile_basename)[0])
@@ -148,7 +113,7 @@ def process_landcover_for_s2_tile(s2_file_path,
     outFile_LR = pth.join(output_dir, 
                           outfile_basename.replace('HR.tif', 'LR.tif'))
                           
-    sen.resample_GDAL(outfile_basename, 
+    gu.resample_file(outfile_basename, 
                       gtNew , 
                       prj_out, 
                       noDataValue=-99999,
@@ -165,7 +130,7 @@ def process_landcover_for_s2_tile(s2_file_path,
         if variable == 'IGBP':
             resampling = gdal.gdalconst.GRA_Mode
                      
-        sen.resample_GDAL(land_cover_file, 
+        gu.resample_file(land_cover_file, 
                           gtNew , 
                           prj_out, 
                           noDataValue=-99999,

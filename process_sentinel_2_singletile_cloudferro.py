@@ -7,12 +7,10 @@ Created on Tue Mar 14 09:27:01 2017
 import os
 import os.path as pth
 import pySentinel.sentinel_process as sen
+import pySentinel.gdal_utils as gu
 import glob
-import sys
-import shutil
 import gdal
 import multiprocessing
-import re
 import numpy as np
 
 
@@ -140,7 +138,7 @@ for l2a_file in l2a_files:
         qc_array=fid.GetRasterBand(1).ReadAsArray()
         mask=sen.create_binary_mask(qc_array, valid_values=QC_VALID_VALUES)
         maskfile=pth.join(l2b_file+'.data','mask.tif')
-        sen.saveImg (mask, fid.GetGeoTransform(), fid.GetProjection(), maskfile, dtype=gdal.GDT_Byte)
+        gu.save_img (mask, fid.GetGeoTransform(), fid.GetProjection(), maskfile, dtype=gdal.GDT_Byte)
         
         logfid=open(pth.join(outdir,'processed_%s.txt'%site),'a')
         logfid.write('\n'+test_filename)

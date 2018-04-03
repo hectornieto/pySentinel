@@ -7,7 +7,7 @@ Created on Tue Mar 14 09:27:01 2017
 import os
 import os.path as pth
 import pySentinel.sentinel_process as sen
-#import sentinel_process as sen
+import pySentinel.gdal_utils as gu
 import glob
 import sys
 import shutil
@@ -31,8 +31,15 @@ inputEPSG=4326
 outputEPSG=32631
 QC_VALID_VALUES=[4,5]
 valid_tiles=['T31TBG','T31TBF','T31TCG','T31TCF','T31TCH']
-ul_X,ul_Y,Z_out=sen.coordinate_convert(latlon[0],latlon[1],inputEPSG,outputEPSG,Z_in=0)
-lr_X,lr_Y,Z_out=sen.coordinate_convert(latlon[2],latlon[3],inputEPSG,outputEPSG,Z_in=0)
+ul_X,ul_Y,Z_out=gu.coordinate_convert((latlon[0],latlon[1]),
+                                       inputEPSG,
+                                       outputEPSG,
+                                       Z_in=0)
+                                       
+lr_X,lr_Y,Z_out=gu.coordinate_convert((latlon[2],latlon[3]),
+                                        inputEPSG
+                                        ,outputEPSG,
+                                        Z_in=0)
 para_dict={'crs':'EPSG:%s'%(outputEPSG),'northBound':float(latlon[3]),'southBound':float(latlon[1]),
 'eastBound':float(latlon[2]),'westBound':float(latlon[0]),'pixelSizeX':float(resolution),'pixelSizeY':float(resolution)}
 
@@ -105,7 +112,11 @@ for date in dates:
         qc_array=fid.GetRasterBand(band+1).ReadAsArray()
         mask=sen.create_binary_mask(qc_array, valid_values=QC_VALID_VALUES)
         maskfile=pth.join(workdir,'Sentinel-2','L2','S2_MSIL2A_%s_mask_%sm.bsq'%(date,resolution))
-        sen.saveImg (mask, fid.GetGeoTransform(), fid.GetProjection(), maskfile, dtype=gdal.GDT_Byte)
+        gu.save_img (mask, 
+                     fid.GetGeoTransform(), 
+                     fid.GetProjection(), 
+                     maskfile, 
+                     dtype=gdal.GDT_Byte)
     
         # Mosaic tiles
         mosaicfile=pth.join(workdir,'Sentinel-2','L2','S2_MSIL2A_%s_biophysical_%sm.bsq'%(date,resolution))  

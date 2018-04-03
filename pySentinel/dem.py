@@ -10,7 +10,7 @@ import os
 import os.path as pth
 import subprocess as sp
 import zipfile
-import pySentinel.sentinel_process as sen
+import pySentinel.gdal_utils as gu
 import gdal
 import osr
 import glob
@@ -28,36 +28,10 @@ URL = 'http://data.cgiar-csi.org/srtm/tiles/GeoTIFF/'
 USER = 'data_public'
 PSSWD = 'GDdci'
 MAX_ATTEMPTS = 2
-
-def get_map_coordinates(row,col,geoTransform):
-    X=geoTransform[0]+geoTransform[1]*col+geoTransform[2]*row
-    Y=geoTransform[3]+geoTransform[4]*col+geoTransform[5]*row
-    return X,Y
-    
-def get_pixel_coordinates(X, Y, geoTransform):
-    row = (Y - geoTransform[3]) / geoTransform[5]
-    col =( X - geoTransform[0]) / geoTransform[1]
-    return int(row), int(col)
-
-def convert_cooordinates(input_coordinate, input_EPSG, output_EPSG=4326): 
-
-    inSpatialRef = osr.SpatialReference()
-    inSpatialRef.ImportFromEPSG(input_EPSG)
-
-     
-    outSpatialRef = osr.SpatialReference()
-    outSpatialRef.ImportFromEPSG(output_EPSG)
-    
-    ct = osr.CoordinateTransformation(inSpatialRef, outSpatialRef)
-    
-    # transform point
-    X_0, Y_0, _ = ct.TransformPoint(input_coordinate[0], input_coordinate[1], 0)
-
-    return X_0, Y_0
     
 def get_srtm(ul, lr, output_path):
-    row_ul, col_ul = get_pixel_coordinates(ul[0], ul[1], SRTM_TILE_GEO)
-    row_lr, col_lr = get_pixel_coordinates(lr[0], lr[1], SRTM_TILE_GEO)
+    row_ul, col_ul = gu.get_pixel_coordinates(ul[0], ul[1], SRTM_TILE_GEO)
+    row_lr, col_lr = gu.get_pixel_coordinates(lr[0], lr[1], SRTM_TILE_GEO)
     
     srtm_tiles = []    
     
@@ -74,7 +48,6 @@ def get_srtm(ul, lr, output_path):
                 srtm_tiles.append(outfile)
     
     return srtm_tiles   
-    
             
 def safe_unzip(zip_file, extractpath='.'):
     with zipfile.ZipFile(zip_file, 'r') as zf:
@@ -82,7 +55,6 @@ def safe_unzip(zip_file, extractpath='.'):
             abspath = os.path.abspath(os.path.join(extractpath, member.filename))
             if abspath.startswith(os.path.abspath(extractpath)):
                 zf.extract(member, extractpath)            
-
         
 def wget_download(url,output):
     wget_command=r'wget --user=%s --password=%s'%(USER, PSSWD)
@@ -109,39 +81,6 @@ def wget_download(url,output):
         return True
     else:
         return False 
-        
-def reproject_dem(input_dem,
-                   gt_out = None,
-                   prj_out = None,
-                   shape_out = None,
-                   outname = 'MEM',
-                   resampling = gdal.gdalconst.GRA_NearestNeighbour):
-
-
-    infid =  gdal.Open(input_dem, gdal.GA_ReadOnly)
-    prj_in = infid.GetProjection()
-    gt_in =  infid. GetGeoTransform()
-    data = infid.GetRasterBand(1).ReadAsArray().astype(np.uint8)
-
-    if not gt_out:
-        gt_out = gt_in
-        
-    if not prj_out:
-        prj_out = prj_in
-    
-    if not shape_out:
-        shape_out = data.shape
-    
-    
-    outfid = sen.saveImg(np.empty(shape_out)*np.nan, 
-                         gt_out, 
-                         prj_out, 
-                         outname,
-                         dtype = gdal.GDT_UInt16)
-                         
-    gdal.ReprojectImage(infid, outfid, prj_in, prj_out, resampling)
-    del infid
-    del outfid
 
 def process_dem_for_s2_tile(s2_file_path, dem_folder = None):
     
@@ -171,9 +110,9 @@ def process_dem_for_s2_tile(s2_file_path, dem_folder = None):
     
     # Convert the image extent into geographic coordinates
     ul_map = gt_out[0], gt_out[3]
-    lr_map = get_map_coordinates(shape_out[0], shape_out[1], gt_out)
-    ul = convert_cooordinates(ul_map, input_epsg, output_EPSG=4326)
-    lr = convert_cooordinates(lr_map, input_epsg, output_EPSG=4326)
+    lr_map = gu.get_map_coordinates(shape_out[0], shape_out[1], gt_out)
+    ul = gu.convert_coordinate(ul_map, input_epsg, output_EPSG=4326)
+    lr = gu.convert_coordinate(lr_map, input_epsg, output_EPSG=4326)
     
     srtm_files = get_srtm(ul, lr, dem_folder)
     mosaic_list = []
@@ -183,7 +122,7 @@ def process_dem_for_s2_tile(s2_file_path, dem_folder = None):
     
     if len(mosaic_list) > 1:
         raw_dem = pth.join(dem_folder, 'temp.tif')
-        sen.gdal_merge(raw_dem, 
+        gu.gdal_merge(raw_dem, 
                    mosaic_list,
                    separate = False, 
                    nodata = np.nan, 
@@ -192,7 +131,7 @@ def process_dem_for_s2_tile(s2_file_path, dem_folder = None):
     else:
         raw_dem = mosaic_list[0]
     
-    reproject_dem(raw_dem,
+    gu.reproject_file(raw_dem,
                    gt_out = gt_out,
                    prj_out = prj_out,
                    shape_out = shape_out,
@@ -273,7 +212,7 @@ def process_topography_for_s2_tile(s2_file_path, dem_folder = None):
     prj = fid.GetProjection()
     gt_new = [gt[0], 1000, 0, gt[3], 0, -1000]
     
-    sen.resample_GDAL(dem_file, 
+    gu.resample_file(dem_file, 
                       gt_new , 
                       prj, 
                       noDataValue=-99999,
