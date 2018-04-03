@@ -79,9 +79,9 @@ def create_static_maps(land_cover_file, output_basename):
  
 def process_landcover_for_s2_tile(s2_file_path, 
                                    land_cover_file, 
-                                   outdir = None):
+                                   output_dir = None):
    
-    if not outdir:
+    if not output_dir:
         output_dir = pth.dirname(land_cover_file)
     
     tile = pth.basename(s2_file_path)[38:44]    
