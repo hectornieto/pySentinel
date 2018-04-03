@@ -1,4 +1,216 @@
-#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Apr  2 10:29:31 2018
+
+@author: Hector Nieto, hector.nieto.solana@gmail.com 
+adapted from gdal_merge.py by Frank Warmerdam, warmerdam@pobox.com
+"""
+
+import math
+import sys
+import time
+import gdal
+import numpy as np
+import osr
+
+try:
+    progress = gdal.TermProgress_nocb
+except:
+    progress = gdal.TermProgress
+
+__version__ = '$id$'[5:-1]
+verbose = 0
+quiet = 0
+
+def resample_file(inFile, 
+                  gtNew , 
+                  projInfoNew, 
+                  noDataValue=-99999,
+                  outFile = "MEM", 
+                  band_id=1, 
+                  resampling = gdal.gdalconst.GRA_NearestNeighbour):
+    
+    fid=gdal.Open(inFile, gdal.GA_ReadOnly)
+    gtOrig=fid.GetGeoTransform()
+    projInfoOrig=fid.GetProjection()
+    data=fid.GetRasterBand(band_id).ReadAsArray()
+    fid = None
+    fileOrig = save_img(data, gtOrig, projInfoOrig, "MEM")
+    # Set Input noData value
+    fileOrig.GetRasterBand(1).SetNoDataValue(noDataValue)
+    shapeNew = (int(round(data.shape[0]*gtOrig[1]/gtNew[1])), 
+                int(round(data.shape[1]*gtOrig[5]/gtNew[5])))
+
+    fileNew = save_img(np.empty(shapeNew)*np.nan, gtNew, projInfoNew, outFile)
+    gdal.ReprojectImage(fileOrig, fileNew, projInfoOrig, projInfoNew, resampling)
+    fileOrig = None    
+    
+    return fileNew
+
+def reproject_file(input_file_path,
+                   gt_out = None,
+                   prj_out = None,
+                   shape_out = None,
+                   outname = 'MEM',
+                   resampling = gdal.gdalconst.GRA_NearestNeighbour):
+
+
+    infid =  gdal.Open(input_file_path, gdal.GA_ReadOnly)
+    prj_in = infid.GetProjection()
+    gt_in =  infid. GetGeoTransform()
+    data = infid.GetRasterBand(1).ReadAsArray().astype(np.uint8)
+
+    if not gt_out:
+        gt_out = gt_in
+        
+    if not prj_out:
+        prj_out = prj_in
+    
+    if not shape_out:
+        shape_out = data.shape
+    
+    
+    outfid = save_img(np.empty(shape_out)*np.nan, 
+                         gt_out, 
+                         prj_out, 
+                         outname,
+                         dtype = gdal.GDT_UInt16)
+                         
+    gdal.ReprojectImage(infid, outfid, prj_in, prj_out, resampling)
+    del infid
+    del outfid    
+
+
+    
+def get_coordinates_image(shape, gt_in):
+    image_coords = np.indices(shape)
+    # Convert the image extent into geographic coordinates
+    x_coords, y_coords = get_map_coordinates(image_coords[0], 
+                                             image_coords[1], 
+                                             gt_in)
+    
+    return x_coords, y_coords    
+
+def get_map_coordinates(row,col,geoTransform):
+    X=geoTransform[0]+geoTransform[1]*col+geoTransform[2]*row
+    Y=geoTransform[3]+geoTransform[4]*col+geoTransform[5]*row
+    return X,Y
+    
+def get_pixel_coordinates(X, Y, geoTransform):
+    row = (Y - geoTransform[3]) / geoTransform[5]
+    col =( X - geoTransform[0]) / geoTransform[1]
+    return int(row), int(col)
+
+def convert_coordinate_array(input_coordinate, input_EPSG, output_EPSG=4326): 
+    ''' Coordinate conversion between two coordinate systems
+    
+    Parameters
+    ----------
+    X_in : array
+        input X coordinates
+    Y_in : array
+        input Y coordinates
+    inputEPSG : int
+        EPSG coordinate code of input coordinates
+    outputEPSG : int
+       EPSG coordinate code of output coordinates
+    Z_in : float
+        input altitude, default=0
+        
+    Returns
+    -------
+    X_0 : array
+        output X coordinates 
+    Y_0 : array
+        output X coordinates   
+    '''
+    from pyproj import Proj, transform
+    
+    inProj = Proj(init='epsg:%s'%input_EPSG)
+    outProj = Proj(init='epsg:%s'%output_EPSG)
+    
+    X_0, Y_0 = transform(inProj, outProj, input_coordinate[0], input_coordinate[1])
+
+    return X_0, Y_0
+
+def convert_coordinate(input_coordinate,
+                       inputEPSG,
+                       outputEPSG = 4326,
+                       Z_in = 0):
+    ''' Coordinate conversion between two coordinate systems
+    
+    Parameters
+    ----------
+    input_coordinate : tuple
+        input coordinate (x,y)
+    inputEPSG : int
+        EPSG coordinate code of input coordinates
+    outputEPSG : int
+       EPSG coordinate code of output coordinates
+    Z_in : float
+        input altitude, default=0
+        
+    Returns
+    -------
+    X_out : float
+        output X coordinate    
+    Y_out : float
+        output X coordinate    
+    Z_out : float
+        output X coordinate   
+    '''
+    
+    # create coordinate transformation
+    inSpatialRef = osr.SpatialReference()
+    inSpatialRef.ImportFromEPSG(inputEPSG)
+
+    outSpatialRef = osr.SpatialReference()
+    outSpatialRef.ImportFromEPSG(outputEPSG)
+
+    coordTransform = osr.CoordinateTransformation(inSpatialRef, outSpatialRef)
+
+    # transform point
+    X_out,Y_out,Z_out=coordTransform.TransformPoint(input_coordinate[0],
+                                                    input_coordinate[1],
+                                                    Z_in)
+    
+    # print point in EPSG 4326
+    return X_out, Y_out, Z_out
+
+def save_img (data, 
+              geotransform, 
+              proj, 
+              outPath, 
+              noDataValue = np.nan, 
+              dtype=gdal.GDT_Float32):
+    
+    # Start the gdal driver for GeoTIFF
+    if outPath == "MEM":
+        driver = gdal.GetDriverByName("MEM")
+        driverOpt = []
+    else:
+        driver = gdal.GetDriverByName("GTiff")
+        driverOpt = ['COMPRESS=DEFLATE', 'PREDICTOR=1', 'BIGTIFF=IF_SAFER']  
+    
+    shape=data.shape
+    if len(shape) > 2:
+        ds = driver.Create(outPath, shape[1], shape[0], shape[2], dtype, driverOpt)
+        ds.SetProjection(proj)
+        ds.SetGeoTransform(geotransform)
+        for i in range(shape[2]):
+            ds.GetRasterBand(i+1).WriteArray(data[:,:,i])  
+            ds.GetRasterBand(i+1).SetNoDataValue(noDataValue)
+    else:
+        ds = driver.Create(outPath, shape[1], shape[0], 1, dtype)
+        ds.SetProjection(proj)
+        ds.SetGeoTransform(geotransform)
+        ds.GetRasterBand(1).WriteArray(data)
+        ds.GetRasterBand(1).SetNoDataValue(noDataValue)
+        
+    print('Saved ' +outPath )
+
+    return ds
+
 ###############################################################################
 # $Id$
 #
@@ -29,22 +241,6 @@
 # If the input image is a multi-band one, use all the channels in
 # building the stack.
 # anssi.pekkarinen@fao.org
-
-import math
-import sys
-import time
-import gdal
-
-try:
-    progress = gdal.TermProgress_nocb
-except:
-    progress = gdal.TermProgress
-
-__version__ = '$id$'[5:-1]
-verbose = 0
-quiet = 0
-
-
 # =============================================================================
 def raster_copy( s_fh, s_xoff, s_yoff, s_xsize, s_ysize, s_band_n,
                  t_fh, t_xoff, t_yoff, t_xsize, t_ysize, t_band_n,
