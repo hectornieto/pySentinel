@@ -22,6 +22,18 @@ __version__ = '$id$'[5:-1]
 verbose = 0
 quiet = 0
 
+def prj_to_epsg(prj):
+    src = osr.SpatialReference()
+    src.ImportFromWkt(prj)
+    epsg = int(src.GetAttrValue('AUTHORITY',1))
+    return epsg
+
+def epsg_to_prj(epsg):
+    src = osr.SpatialReference()
+    src.ImportFromEPSG(epsg)
+    prj = src.ExportFromWkt()
+    return prj
+
 def resample_array (data,
                    gt_in,
                    prj_in,
