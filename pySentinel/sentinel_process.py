@@ -210,7 +210,7 @@ def sentinel3_LST_processor(toa_file,
                             LAI,    
                             emis_veg = [0.98, 0.975],    
                             emis_soil = [0.95, 0.945], 
-                            VALID_PIXEL = 1, 
+                            VALID_PIXEL = 0, 
                             out_dir = None):
     ''' Computes L2 Land Surface Temperature from Sentinel 3 L1c
     Top of the Atmosphere product
@@ -250,7 +250,7 @@ def sentinel3_LST_processor(toa_file,
     fid=gdal.Open(cloudFile,gdal.GA_ReadOnly)
     cloud = fid.GetRasterBand(1).ReadAsArray()
     fid = None
-    valid = cloud <= VALID_PIXEL
+    valid = cloud == VALID_PIXEL
     if not valid.any():
         print('Not valid data found')
         return False
