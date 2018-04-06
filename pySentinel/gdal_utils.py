@@ -12,6 +12,7 @@ import time
 import gdal
 import numpy as np
 import osr
+import os.path as pth
 
 try:
     progress = gdal.TermProgress_nocb
@@ -231,6 +232,9 @@ def save_img (data,
     # Start the gdal driver for GeoTIFF
     if outPath == "MEM":
         driver = gdal.GetDriverByName("MEM")
+        driverOpt = []
+    elif pth.splitext(outPath)[1] == '.img':
+        driver = gdal.GetDriverByName("ENVI")
         driverOpt = []
     else:
         driver = gdal.GetDriverByName("GTiff")
