@@ -239,10 +239,10 @@ def sentinel3_LST_processor(toa_file,
     filename = pth.basename(toa_file)    
     
     if not out_dir:
-        out_dir =  pth.join(pth.dirname(toa_file), 'L2')
+        out_dir =  pth.join(pth.dirname(toa_file), filename)
     
     if not pth.isdir(out_dir):
-        os.mkdir(out_dir)
+        os.makedirs(out_dir)
         
     # Read total column water vapour
     toa_file+='.data'
@@ -301,12 +301,27 @@ def sentinel3_LST_processor(toa_file,
     LST=calc_LST_Sobrino(brightnessTemperature, emissivity, totalColumnWaterVapour, viewZenithAngle)
     LST[~valid]=np.nan
     
-    outPath=pth.join(out_dir,'%s_LST_n.tif'%(filename.replace('SL_1_RBT','SL_2_RBT')))
-    gu.save_img (np.dstack((LST,emissivity[:,:,0],emissivity[:,:,1])), 
-                            fid.GetGeoTransform(), 
-                            fid.GetProjection(), 
-                            outPath, 
-                            noDataValue =np.nan)
+    outPath=pth.join(out_dir,'LST_in.img')
+    gu.save_img (LST, 
+                fid.GetGeoTransform(), 
+                fid.GetProjection(), 
+                outPath, 
+                noDataValue =np.nan)
+                            
+    outPath=pth.join(out_dir,'S8_emiss.img')
+    gu.save_img (emissivity[:,:,0], 
+                fid.GetGeoTransform(), 
+                fid.GetProjection(), 
+                outPath, 
+                noDataValue =np.nan)
+                            
+    outPath=pth.join(out_dir,'S9_emiss.img')
+    gu.save_img (emissivity[:,:,1], 
+                fid.GetGeoTransform(), 
+                fid.GetProjection(), 
+                outPath, 
+                noDataValue =np.nan)
+
     fid = None
     
     return True
