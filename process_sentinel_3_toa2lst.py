@@ -17,7 +17,7 @@ import shutil
 
 geographic_EPSG = 4326
 resolution = (1000,1000)
-site = 'Voulund'
+site = 'Borden'
 emis_veg = [0.98, 0.975]   
 emis_soil = [0.95, 0.945]
 workdir=os.getcwd()
@@ -138,6 +138,7 @@ if __name__=='__main__':
     
         date_query, input_epsg, extent = get_sentinel2_date_extent(s2_file)
         footprint = sentinel_hub_footprint(extent, input_epsg)
+        tile = gu.tile_from_file_name(s2_file)
         print(date_query)
         write_query_file(query_file, date_query, footprint)
         test = sentinel_configuration_download(query_file,logfile=None)
@@ -153,7 +154,7 @@ if __name__=='__main__':
         
         for link, filename, orbit in zip(links, filenames, orbits):
             
-            input_file=pth.join(output_dir,filename)
+            input_file = pth.join(output_dir,filename)
             test_filename = filename.rstrip('.zip')[16:]
             
             if test_filename not in processed_files and orbit == orbitdirection:
@@ -166,9 +167,9 @@ if __name__=='__main__':
                 l1_file = sen.reproject_S3_SNAP(input_file,
                                               input_epsg,
                                               resolution,
-                                              extent=extent,
-                                              output_file=None,
-                                              paralellism=120)
+                                              extent = extent,
+                                              output_file = input_file+'_%s'%tile,
+                                              paralellism = 120)
                 
                 out_filename = list(filename.rstrip('.zip'))
                 out_filename[7] = '2'
