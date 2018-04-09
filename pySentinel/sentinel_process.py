@@ -1005,6 +1005,12 @@ def sen2lai(l2a_file,
         
     return l2b_file
 
+def tile_from_file_name(s2_file_path):
+
+    file_base_name = pth.basename(s2_file_path)
+    tile = file_base_name[38:44]
+    return tile
+
 def _check_default_parameter_size(parameter, input_array):
 
     parameter = np.asarray(parameter)
