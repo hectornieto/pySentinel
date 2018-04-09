@@ -300,29 +300,32 @@ def sentinel3_LST_processor(toa_file,
     brightnessTemperature=np.dstack((bt11,bt12))
     LST=calc_LST_Sobrino(brightnessTemperature, emissivity, totalColumnWaterVapour, viewZenithAngle)
     LST[~valid]=np.nan
-    
-    outPath=pth.join(out_dir,'LST_in.img')
-    gu.save_img (LST, 
-                fid.GetGeoTransform(), 
-                fid.GetProjection(), 
-                outPath, 
-                noDataValue =np.nan)
-                            
-    outPath=pth.join(out_dir,'S8_emiss.img')
-    gu.save_img (emissivity[:,:,0], 
-                fid.GetGeoTransform(), 
-                fid.GetProjection(), 
-                outPath, 
-                noDataValue =np.nan)
-                            
-    outPath=pth.join(out_dir,'S9_emiss.img')
-    gu.save_img (emissivity[:,:,1], 
-                fid.GetGeoTransform(), 
-                fid.GetProjection(), 
-                outPath, 
-                noDataValue =np.nan)
 
-    fid = None
+    fids = []
+    outPath=pth.join(out_dir,'LST_in.img')
+    fids.append(gu.save_img (LST, 
+                             fid.GetGeoTransform(), 
+                             fid.GetProjection(), 
+                             outPath, 
+                             noDataValue = np.nan))
+                                    
+    outPath=pth.join(out_dir,'S8_emiss_in.img')
+    fids.append(gu.save_img (emissivity[:,:,0], 
+                            fid.GetGeoTransform(), 
+                            fid.GetProjection(), 
+                            outPath, 
+                            noDataValue = np.nan))
+                            
+    outPath=pth.join(out_dir,'S9_emiss_in.img')
+    fids.append(gu.save_img (emissivity[:,:,1], 
+                            fid.GetGeoTransform(), 
+                            fid.GetProjection(), 
+                            outPath, 
+                            noDataValue =np.nan))
+
+    # Create the VRT file
+    out_vrt = outPath.replace('.data', '.vrt')
+    gdal.BuildVRT(out_vrt, fids, separate = True)        
     
     return True
 
@@ -392,7 +395,7 @@ def calc_LST_Sobrino(BT, emissivity, totalColumnWaterVapour, viewZenithAngle):
     emissivity : array_like (rows,colums,2)
         Split-window surface emissivity
     totalColumnWaterVapour : array_like (rows,columms)
-        Total precipitable water vapour
+        Total precipitable water vapour (cm)
     viewZenithAngle : array_like (rows,columms)
         View Zenith Angle 
     

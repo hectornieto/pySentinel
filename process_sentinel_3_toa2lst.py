@@ -7,6 +7,7 @@ Created on Tue Mar 14 09:20:01 2017
 
 from pySentinel.sentinel_download import sentinel_configuration_download, parse_sentinel_hub_query, wget_download
 import pySentinel.sentinel_process as sen
+import pySentinel.gdal_utils as gu
 import os
 import os.path as pth
 import gdal
@@ -16,7 +17,7 @@ import shutil
 
 geographic_EPSG = 4326
 resolution = (1000,1000)
-site = 'Borden'
+site = 'Voulund'
 emis_veg = [0.98, 0.975]   
 emis_soil = [0.95, 0.945]
 workdir=os.getcwd()
@@ -41,34 +42,10 @@ l2_band_list = ('LST', 'TCWV', 'NDVI', 'biome', 'fraction', 'cloud_in',
            'v_wind_tx_time_1_tx', 'v_wind_tx_time_2_tx', 'v_wind_tx_time_3_tx', 'v_wind_tx_time_4_tx', 'v_wind_tx_time_5_tx')
 
 l1_band_list = ('S8_BT_in','S9_BT_in','S8_BT_io','S9_BT_io','cloud_in','cloud_io',
-                'sat_zenith_tn','sat_zenith_to','total_column_water_vapour_tx',
-                'dew_point_tx', 'temperature_tx', 
+                'sat_zenith_tn','sat_zenith_to', 'solar_azimuth_tn', 'solar_zenith_tn'
+                'total_column_water_vapour_tx','dew_point_tx', 'temperature_tx', 
                 'u_wind_tx_time_1_tx', 'u_wind_tx_time_2_tx', 'u_wind_tx_time_3_tx', 'u_wind_tx_time_4_tx', 'u_wind_tx_time_5_tx', 
                 'v_wind_tx_time_1_tx', 'v_wind_tx_time_2_tx', 'v_wind_tx_time_3_tx', 'v_wind_tx_time_4_tx', 'v_wind_tx_time_5_tx')
-
-
-def convert_cooordinates(input_coordinate, input_EPSG, output_EPSG=4326): 
-
-    inSpatialRef = osr.SpatialReference()
-    inSpatialRef.ImportFromEPSG(input_EPSG)
-
-     
-    outSpatialRef = osr.SpatialReference()
-    outSpatialRef.ImportFromEPSG(output_EPSG)
-    
-    ct = osr.CoordinateTransformation(inSpatialRef, outSpatialRef)
-    
-    # transform point
-    X_0, Y_0, _ = ct.TransformPoint(input_coordinate[0], input_coordinate[1], 0)
-
-    return X_0, Y_0
-
-def get_map_coordinates(row, col, geoTransform):
-    X = geoTransform[0] + geoTransform[1]*col + geoTransform[2]*row
-    Y = geoTransform[3] + geoTransform[4]*col + geoTransform[5]*row 
-                    
-    return X, Y
-
 
 def get_sentinel2_date_extent(setinel2_dim_folder):
     # Get the acquisition date from the filename
@@ -89,8 +66,8 @@ def get_sentinel2_date_extent(setinel2_dim_folder):
     n_rows = fid.RasterXSize
     n_cols = fid.RasterYSize
     
-    ul = get_map_coordinates(0, 0, geo)
-    lr = get_map_coordinates(n_rows, n_cols, geo)
+    ul = gu.get_map_coordinates(0, 0, geo)
+    lr = gu.get_map_coordinates(n_rows, n_cols, geo)
     
     extent=(ul[0], ul[1], lr[0], lr[1])
      
@@ -100,10 +77,15 @@ def sentinel_hub_footprint(extent, input_epsg):
     
     # Convert the projected coordinates into geographic coordinates
     
-    ul = convert_cooordinates((extent[0],extent[1]), input_epsg, output_EPSG=4326)
-    lr = convert_cooordinates((extent[2],extent[3]), input_epsg, output_EPSG=4326)
+    ul_x, ul_y, _ = gu.convert_coordinate((extent[0],extent[1]), 
+                                           input_epsg, 
+                                           outputEPSG=4326)
+
+    lr_x, lr_y, _ = gu.convert_coordinate((extent[2],extent[3]), 
+                                        input_epsg, 
+                                        outputEPSG=4326)
     
-    footprint = (ul[0], ul[1], lr[0], ul[1], lr[0], lr[1], ul[0], lr[1], ul[0], ul[1])
+    footprint = (ul_x, ul_y, lr_x, ul_y, lr_x, lr_y, ul_x, lr_y, ul_x, ul_y)
 
     return footprint
 
@@ -181,30 +163,37 @@ if __name__=='__main__':
         
                 date_str = date_query.replace('-','')
                      
-                output_file = sen.reproject_S3_SNAP(input_file,
+                l1_file = sen.reproject_S3_SNAP(input_file,
                                               input_epsg,
                                               resolution,
                                               extent=extent,
                                               output_file=None,
                                               paralellism=120)
-               
-                if pth.exists(output_file+'.data'):
-                    sen.delete_DIMAP_bands(output_file, l1_band_list)
+                
+                out_filename = list(filename.rstrip('.zip'))
+                out_filename[7] = '2'
+                out_filename = ''.join(out_filename)
+                
+                if pth.exists(l1_file + '.data'):
+                    sen.delete_DIMAP_bands(l1_file, l1_band_list)
                     shutil.rmtree(input_file)
-                    os.remove(input_file+'.zip')
-                    
+                    #os.remove(input_file+'.zip')
+                    outfile_dir = pth.join(output_dir,out_filename+'.data')
+                    if not pth.isdir(outfile_dir):
+                        os.makedirs(outfile_dir)
+                        
                     LAI = sen.resample_S2_LAI(pth.join(s2_file,'lai.img'), 
                                           extent, 
                                           input_epsg, 
-                                          resolution=resolution, 
-                                          out_file=pth.join(output_file+'.data', 'LAI_S2.tif'))
+                                          resolution = resolution, 
+                                          out_file = pth.join(outfile_dir, 'lai_S2.img'))
     
-                    sen.sentinel3_LST_processor(output_file, 
+                    sen.sentinel3_LST_processor(l1_file, 
                                             LAI,    
                                             emis_veg = emis_veg,    
                                             emis_soil = emis_soil, 
-                                            VALID_PIXEL = 1, 
-                                            out_dir = None)
+                                            VALID_PIXEL = 0, 
+                                            out_dir = outfile_dir)
                     
                     logfid=open(pth.join(output_dir,'processed_%s.txt'%site),'a')
                     logfid.write('\n'+test_filename)
