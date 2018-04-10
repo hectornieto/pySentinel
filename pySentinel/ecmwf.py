@@ -248,7 +248,7 @@ def get_ecmwf_resample_and_interpolate(date_time,
         prj_in = osr.SpatialReference()
         prj_in.ImportFromEPSG(4326)
         prj_in = prj_in.ExportToWkt()
-        outfile = outfile_basename + '_%s.tif'%VAR_NAMES[var]
+        outfile = pth.join(outfile_basename, '%s.img'%VAR_NAMES[var])
         
         gu.resample_array (data,
                    gt_in,
