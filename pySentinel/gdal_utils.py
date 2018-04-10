@@ -66,7 +66,13 @@ def resample_array (data,
 
     data = outfid.GetRasterBand(1).ReadAsArray()
     return data
+    
+def tile_from_file_name(s2_file_path):
 
+    file_base_name = pth.basename(s2_file_path)
+    tile = file_base_name[38:44]
+    return tile 
+    
 def resample_file(inFile, 
                   gtNew , 
                   projInfoNew, 
