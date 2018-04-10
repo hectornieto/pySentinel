@@ -222,6 +222,14 @@ def convert_coordinate(input_coordinate,
     # print point in EPSG 4326
     return X_out, Y_out, Z_out
 
+def read_single_band_image(image_path):
+    fid = gdal.Open(image_path, gdal.GA_ReadOnly)
+    geo = fid.GetGeoTransform()
+    prj = fid.GetProjection()
+    data = fid.GetRasterBand(1).ReadAsArray()
+    
+    return data, geo, prj
+
 def save_img (data, 
               geotransform, 
               proj, 
