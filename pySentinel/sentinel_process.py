@@ -21,6 +21,47 @@ from pySentinel.sen2cor_gipp_template import get_sen2cor_template
 SEN2COR_BIN = '/home/hector/sen2cor/Sen2Cor-2.4.0-Linux64/bin/L2A_Process ' # Path to the sen2cor binary file
 GPTSNAP_BIN = '/home/hector/snap/bin/gpt' # Path to the SNAP gpt binary file
 
+#                   NB_LAB	a_v	a_s	b_v	b_s	c_v	c_s
+ESACCI_SW_COEFFS = {0: (0, 0, 0, 0, 0, 0),
+                    10: (0.881, 0.881, 3.4106, 3.4106, -2.4133, -2.4133),
+                    11: (0.881, 0.881, 3.4106, 3.4106, -2.4133, -2.4133),
+                    12: (0.8903, 0.5989, 3.3907, 3.575, -2.4052, -2.5385),
+                    20: (0.4402, 0.4402, 2.9165, 2.9165, -1.9238, -1.9238),
+                    30: (0.8903, 0.5989, 3.3907, 3.575, -2.4052, -2.5385),
+                    40: (0.8949, 0.4579, 3.3808, 3.6572, -2.4011, -2.6012),
+                    50: (0.6907, 6.0951, 3.8129, 4.5637, -2.8455, -3.3617),
+                    60: (-0.6139, 4.7543, 3.6472, 4.3652, -2.7218, -3.2155),
+                    61: (-0.6139, 4.7543, 3.6472, 4.3652, -2.7218, -3.2155),
+                    62: (0.9089, 0.0348, 3.3511, 3.9038, -2.389, -2.7891),
+                    70: (1.0801, 1.0801, 3.2972, 3.2972, -2.2909, -2.2909),
+                    71: (1.0801, 1.0801, 3.2972, 3.2972, -2.2909, -2.2909),
+                    72: (0.9302, 1.2855, 3.2846, 3.5544, -2.3141, -2.5071),
+                    80: (0.9302, 1.2855, 3.2846, 3.5544, -2.3141, -2.5071),
+                    81: (0.9302, 1.2855, 3.2846, 3.5544, -2.3141, -2.5071),
+                    82: (0.9302, 1.2855, 3.2846, 3.5544, -2.3141, -2.5071),
+                    90: (0.9302, 1.2855, 3.2846, 3.5544, -2.3141, -2.5071),
+                    100: (0.8541, 0.4171, 3.4299, 3.7063, -2.4477, -2.6478),
+                    110: (0.931, 1.2863, 3.288, 3.5578, -2.3164, -2.5093),
+                    120: (1.2313, 0.8399, 3.3125, 3.5713, -2.3663, -2.5514),
+                    121: (1.2313, 0.8399, 3.3125, 3.5713, -2.3663, -2.5514),
+                    122: (1.2313, 0.8399, 3.3125, 3.5713, -2.3663, -2.5514),
+                    130: (0.7993, 0.7993, 3.5088, 3.5088, -2.5065, -2.5065),
+                    140: (1.0199, 1.0199, 3.3648, 3.3648, -2.3606, -2.3606),
+                    150: (1.0199, 1.0199, 3.3648, 3.3648, -2.3606, -2.3606),
+                    151: (1.0199, 1.0199, 3.3648, 3.3648, -2.3606, -2.3606),
+                    152: (1.0199, 1.0199, 3.3648, 3.3648, -2.3606, -2.3606),
+                    153: (1.0199, 1.0199, 3.3648, 3.3648, -2.3606, -2.3606),
+                    160: (0.345, 3.0472, 3.1177, 3.4931, -2.1399, -2.398),
+                    170: (0.4542, 0.0171, 2.8867, 3.1631, -1.9117, -2.1117),
+                    180: (0.5406, 0.5406, 2.8632, 2.8632, -1.8649, -1.8649),
+                    190: (0.7942, 0.7925, 3.5969, 3.5969, -2.6, -2.6),
+                    200: (0.7075, 0.7041, 3.7832, 3.7832, -2.7868, -2.7868),
+                    201: (0.7075, 0.7041, 3.7832, 3.7832, -2.7868, -2.7868),
+                    202: (0.7075, 0.7041, 3.7832, 3.7832, -2.7868, -2.7868),
+                    210: (-0.0005, -0.0005, 2.4224, 2.4224, -1.4344, -1.4344),
+                    220: (1.0801, 1.0801, 3.2972, 3.2972, -2.2909, -2.2909)}
+
+
 def point2pix(coords , gt, upperBound = False):
     ''' Convert map coordinates into pixel coordinates
     
@@ -385,6 +426,55 @@ def calc_emissivity_4SAIL(lai,vza,alpha,emis_veg=0.98,emis_soil=0.95,tau=0.0):
     
     return emissivity
 
+def calc_LST_S3(BT, f_cover, landcover, pw, viewZenithAngle):
+    ''' Estimates split-window surface temperature based on AATSR coefficients
+    
+    Parameters
+    ----------
+    BT : array_like (rows,columms,2)
+        Split-window TOA brightness temperature 
+    landover : array_like (rows,colums)
+        ESA-CCI Landcover map
+    pw : array_like (rows,columms)
+        Total precipitable water vapour (cm)
+    viewZenithAngle : array_like (rows,columms)
+        View Zenith Angle 
+    
+    Returns
+    -------
+    LST : array_like
+        surface directional emissivity
+    
+    References
+    ----------
+    .. [LST-ATDB] SLSTR ATDB Land Surface Temperature 
+        Sentinel-3 Optical Products and Algorithm Definition
+        2012, Version 2.3
+    '''
+    a_f_i, b_f_i, c_f_i = map(np.zeros, 3*[f_cover.shape])
+    
+    d = 0.1
+    m = 4.096
+    
+    for lc, coeffs in  ESACCI_SW_COEFFS.items():
+        index = lc == landcover
+        a_f_i += index * (f_cover*coeffs[0] + (1. - f_cover)*coeffs[1])
+        b_f_i += index * (f_cover*coeffs[2] + (1. - f_cover)*coeffs[3])
+        c_f_i += index * (f_cover*coeffs[4] + (1. - f_cover)*coeffs[5])
+    
+    p_theta = 1. / np.cos(np.radians(viewZenithAngle/ m))    
+    a_f_i_pw = d * (1. / np.cos(np.radians(viewZenithAngle)) - 1.) * pw \
+                + a_f_i
+                
+    LST = a_f_i_pw \
+          + b_f_i * (BT[:,:,0] - BT[:,:,1])**p_theta \
+          + (b_f_i + c_f_i) * BT[:,:,1]
+    
+    LST[np.isnan(LST)] = 0.0    
+    LST[LST<0] = 0.0
+    
+    return LST
+
 def calc_LST_Sobrino(BT, emissivity, totalColumnWaterVapour, viewZenithAngle):
     ''' Estimates split-window surface temperature based on AATSR coefficients
     
@@ -401,8 +491,8 @@ def calc_LST_Sobrino(BT, emissivity, totalColumnWaterVapour, viewZenithAngle):
     
     Returns
     -------
-    emissivity : array_like
-        surface directional emissivity
+    LST : array_like
+        Land Surface Temperature (K)
     
     References
     ----------
