@@ -172,6 +172,88 @@ def get_cams (date_time,
             gid_an = pygrib.open(cams_an['target'])
             
             return gid_an, gid_fc
+
+def get_cams_timeseries (date_time_ini,
+                         date_time_end,
+                         path = None,
+                         cams_type = None,
+                         variables = [TA_CODE, 
+                                       TDEW_CODE, 
+                                       UWIND_CODE, 
+                                       VWIND_CODE]):
+    
+    if type(path)==type(None):
+        path=os.getcwd()
+        
+    params = [str(VAR_NAMES[param]) for param in variables if param != AOT550_CODE]
+    params = '/'.join(params)
+    
+    
+    retrievalPeriod = '%s/to/%s'%(date_time_ini.strftime('%Y-%m-%d'), 
+                                  date_time_end.strftime('%Y-%m-%d'))
+    
+    date_str = retrievalPeriod
+
+    cams_fc = { "class": "mc",
+                "dataset": "cams_nrealtime",
+                "date": retrievalPeriod,
+                "expver": "0001",
+                "levtype": "sfc",
+                "param": params,
+                "step": "3",
+                "stream": "oper",
+                "time": "00:00:00/06:00:00/12:00:00/18:00:00",
+                "type": "fc",
+                "target": pth.join(path,'cams_fc_%s.grib'%date_str),
+                'expect': 'any',
+                }
+                       
+    cams_an = {"class": "mc",
+               "dataset": "cams_nrealtime",
+               "date": retrievalPeriod,
+               "expver": "0001",
+               "levtype": "sfc",
+               "param": params,
+               "step": "0",
+               "stream": "oper",
+               "time": "00:00:00/06:00:00/12:00:00/18:00:00",
+               "type": "an",
+               "target": pth.join(path,'cams_an_%s.grib'%date_str),
+               'expect': 'any',
+               }
+    
+        
+    if not cams_type:
+        if not os.path.exists(cams_fc['target']):
+            download_ecmwf_data(cams_fc)
+     
+        if not os.path.exists(cams_an['target']):
+            download_ecmwf_data(cams_an)
+        
+        return cams_an['target'], cams_fc['target']
+   
+    else:
+        if cams_type == 'an':
+            if not os.path.exists(cams_an['target']):
+                download_ecmwf_data(cams_an)
+        
+            return cams_an['target']
+                
+        elif cams_type == 'fc':
+            if not os.path.exists(cams_fc['target']):
+                download_ecmwf_data(cams_fc)
+        
+            return cams_fc['target']
+
+        else:
+            if not os.path.exists(cams_fc['target']):
+                download_ecmwf_data(cams_fc)
+            
+            if not os.path.exists(cams_an['target']):
+                download_ecmwf_data(cams_an)
+            
+            
+            return cams_an['target'], cams_fc['target']
    
 def download_ecmwf_data (request):
     # To run this example, you need an API key 
@@ -199,6 +281,9 @@ def get_ecmwf_datetime_boundaries(date, time_step):
     
 
     return date_ecmwf
+
+
+
 
 def get_ecmwf_resample_and_interpolate(date_time, 
                                        gt_out, 
