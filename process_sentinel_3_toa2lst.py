@@ -18,8 +18,8 @@ import shutil
 geographic_EPSG = 4326
 resolution = (1000,1000)
 site = 'Borden'
-emis_veg = [0.98, 0.975]   
-emis_soil = [0.95, 0.945]
+emis_veg = [0.990, 0.990]   
+emis_soil = [0.969, 0.977]
 workdir=os.getcwd()
 
 
@@ -42,7 +42,7 @@ l2_band_list = ('LST', 'TCWV', 'NDVI', 'biome', 'fraction', 'cloud_in',
            'v_wind_tx_time_1_tx', 'v_wind_tx_time_2_tx', 'v_wind_tx_time_3_tx', 'v_wind_tx_time_4_tx', 'v_wind_tx_time_5_tx')
 
 l1_band_list = ('S8_BT_in','S9_BT_in','S8_BT_io','S9_BT_io','cloud_in','cloud_io',
-                'sat_zenith_tn','sat_zenith_to', 'solar_azimuth_tn', 'solar_zenith_tn'
+                'sat_zenith_tn','sat_zenith_to', 'solar_azimuth_tn', 'solar_zenith_tn',
                 'total_column_water_vapour_tx','dew_point_tx', 'temperature_tx', 
                 'u_wind_tx_time_1_tx', 'u_wind_tx_time_2_tx', 'u_wind_tx_time_3_tx', 'u_wind_tx_time_4_tx', 'u_wind_tx_time_5_tx', 
                 'v_wind_tx_time_1_tx', 'v_wind_tx_time_2_tx', 'v_wind_tx_time_3_tx', 'v_wind_tx_time_4_tx', 'v_wind_tx_time_5_tx')
@@ -168,7 +168,7 @@ if __name__=='__main__':
                                               input_epsg,
                                               resolution,
                                               extent = extent,
-                                              output_file = input_file+'_%s'%tile,
+                                              output_file = None,
                                               paralellism = 120)
                 
                 out_filename = list(filename.rstrip('.zip'))
@@ -187,7 +187,13 @@ if __name__=='__main__':
                                           extent, 
                                           input_epsg, 
                                           resolution = resolution, 
-                                          out_file = pth.join(outfile_dir, 'lai_S2.img'))
+                                          out_file = pth.join(outfile_dir, 'LAI_S2.img'))
+
+                    fapar = sen.resample_S2_LAI(pth.join(s2_file,'fapar.img'), 
+                                          extent, 
+                                          input_epsg, 
+                                          resolution = resolution, 
+                                          out_file = pth.join(outfile_dir, 'FAPAR_S2.img'))
     
                     sen.sentinel3_LST_processor(l1_file, 
                                             LAI,    
