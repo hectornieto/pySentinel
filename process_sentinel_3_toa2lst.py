@@ -62,7 +62,6 @@ def get_sentinel2_date_extent(setinel2_dim_folder):
     prj = fid.GetProjection()
     input_src = osr.SpatialReference()
     input_src.ImportFromWkt(prj)
-    input_epsg = int(input_src.GetAttrValue('AUTHORITY',1))
     n_rows = fid.RasterXSize
     n_cols = fid.RasterYSize
     
@@ -71,19 +70,17 @@ def get_sentinel2_date_extent(setinel2_dim_folder):
     
     extent=(ul[0], ul[1], lr[0], lr[1])
      
-    return date_query,  input_epsg, extent
+    return date_query, input_src, extent
 
-def sentinel_hub_footprint(extent, input_epsg):
+def sentinel_hub_footprint(extent, input_src):
     
     # Convert the projected coordinates into geographic coordinates
     
     ul_x, ul_y, _ = gu.convert_coordinate((extent[0],extent[1]), 
-                                           input_epsg, 
-                                           outputEPSG=4326)
+                                           input_src)
 
     lr_x, lr_y, _ = gu.convert_coordinate((extent[2],extent[3]), 
-                                        input_epsg, 
-                                        outputEPSG=4326)
+                                        input_src)
     
     footprint = (ul_x, ul_y, lr_x, ul_y, lr_x, lr_y, ul_x, lr_y, ul_x, ul_y)
 
@@ -136,9 +133,9 @@ if __name__=='__main__':
         
     for s2_file in file_list:
     
-        date_query, input_epsg, extent = get_sentinel2_date_extent(s2_file)
-        footprint = sentinel_hub_footprint(extent, input_epsg)
-        tile = gu.tile_from_file_name(s2_file)
+        date_query, input_src, extent = get_sentinel2_date_extent(s2_file)
+        input_epsg = gu.prj_to_epsg(gu.src_to_prj(input_src))
+        footprint = sentinel_hub_footprint(extent, input_src)
         print(date_query)
         write_query_file(query_file, date_query, footprint)
         test = sentinel_configuration_download(query_file,logfile=None)
