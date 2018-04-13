@@ -18,8 +18,8 @@ import pySentinel.gdal_utils as gu
 from pySentinel.sen2cor_gipp_template import get_sen2cor_template
 
 # Modify these two variables if needed (only if sen2cor and gpt binaries are not included in the PATH)
-SEN2COR_BIN = '/home/hector/sen2cor/Sen2Cor-2.4.0-Linux64/bin/L2A_Process ' # Path to the sen2cor binary file
-GPTSNAP_BIN = '/home/hector/snap/bin/gpt' # Path to the SNAP gpt binary file
+SEN2COR_BIN = 'L2A_Process ' # Path to the sen2cor binary file
+GPTSNAP_BIN = 'gpt' # Path to the SNAP gpt binary file
 
 #                   NB_LAB	a_v	a_s	b_v	b_s	c_v	c_s
 ESACCI_SW_COEFFS = {0: (0, 0, 0, 0, 0, 0),
@@ -365,8 +365,8 @@ def sentinel3_LST_processor(toa_file,
                             noDataValue =np.nan))
 
     # Create the VRT file
-    out_vrt = outPath.replace('.data', '.vrt')
-    gdal.BuildVRT(out_vrt, fids, separate = True)        
+    #out_vrt = outPath.replace('.data', '.vrt')
+    #gdal.BuildVRT(out_vrt, fids, separate = True)        
     
     return True
 
