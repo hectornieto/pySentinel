@@ -26,12 +26,20 @@ quiet = 0
 def prj_to_epsg(prj):
     src = osr.SpatialReference()
     src.ImportFromWkt(prj)
-    epsg = int(src.GetAttrValue('AUTHORITY',1))
+    epsg = src.GetAttrValue("AUTHORITY", 1)
     return epsg
 
-def epsg_to_prj(epsg):
+def prj_to_src(prj):
+    src = osr.SpatialReference()
+    src.ImportFromWkt(prj)
+    return src
+
+def epsg_to_src(epsg = 4326):
     src = osr.SpatialReference()
     src.ImportFromEPSG(epsg)
+    return src
+
+def src_to_prj(src):
     prj = src.ExportFromWkt()
     return prj
 
@@ -185,8 +193,8 @@ def convert_coordinate_array(input_coordinate, input_EPSG, output_EPSG=4326):
     return X_0, Y_0
 
 def convert_coordinate(input_coordinate,
-                       inputEPSG,
-                       outputEPSG = 4326,
+                       input_src,
+                       output_src = osr.SpatialReference().ImportFromEPSG(4326),
                        Z_in = 0):
     ''' Coordinate conversion between two coordinate systems
     
@@ -212,18 +220,12 @@ def convert_coordinate(input_coordinate,
     '''
     
     # create coordinate transformation
-    inSpatialRef = osr.SpatialReference()
-    inSpatialRef.ImportFromEPSG(inputEPSG)
-
-    outSpatialRef = osr.SpatialReference()
-    outSpatialRef.ImportFromEPSG(outputEPSG)
-
-    coordTransform = osr.CoordinateTransformation(inSpatialRef, outSpatialRef)
+    coordTransform = osr.CoordinateTransformation(input_src, output_src)
 
     # transform point
-    X_out,Y_out,Z_out=coordTransform.TransformPoint(input_coordinate[0],
-                                                    input_coordinate[1],
-                                                    Z_in)
+    X_out, Y_out, Z_out = coordTransform.TransformPoint(input_coordinate[0],
+                                                        input_coordinate[1],
+                                                        Z_in)
     
     # print point in EPSG 4326
     return X_out, Y_out, Z_out
