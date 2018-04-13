@@ -40,7 +40,7 @@ def epsg_to_src(epsg = 4326):
     return src
 
 def src_to_prj(src):
-    prj = src.ExportFromWkt()
+    prj = src.ExportToWkt()
     return prj
 
 def resample_array (data,
@@ -194,7 +194,7 @@ def convert_coordinate_array(input_coordinate, input_EPSG, output_EPSG=4326):
 
 def convert_coordinate(input_coordinate,
                        input_src,
-                       output_src = osr.SpatialReference().ImportFromEPSG(4326),
+                       output_src = None,
                        Z_in = 0):
     ''' Coordinate conversion between two coordinate systems
     
@@ -218,6 +218,10 @@ def convert_coordinate(input_coordinate,
     Z_out : float
         output X coordinate   
     '''
+    
+    if not output_src:
+        output_src = osr.SpatialReference()
+        output_src.ImportFromEPSG(4326)
     
     # create coordinate transformation
     coordTransform = osr.CoordinateTransformation(input_src, output_src)
