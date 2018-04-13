@@ -26,7 +26,7 @@ quiet = 0
 def prj_to_epsg(prj):
     src = osr.SpatialReference()
     src.ImportFromWkt(prj)
-    epsg = src.GetAttrValue("AUTHORITY", 1)
+    epsg = int(src.GetAttrValue("AUTHORITY", 1))
     return epsg
 
 def prj_to_src(prj):
