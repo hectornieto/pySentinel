@@ -16,6 +16,7 @@ from pyPro4Sail import FourSAIL as sail
 import numpy as np
 import pySentinel.gdal_utils as gu
 from pySentinel.sen2cor_gipp_template import get_sen2cor_template
+import shutil
 
 # Modify these two variables if needed (only if sen2cor and gpt binaries are not included in the PATH)
 SEN2COR_BIN = 'L2A_Process ' # Path to the sen2cor binary file
@@ -61,6 +62,20 @@ ESACCI_SW_COEFFS = {0: (0, 0, 0, 0, 0, 0),
                     210: (-0.0005, -0.0005, 2.4224, 2.4224, -1.4344, -1.4344),
                     220: (1.0801, 1.0801, 3.2972, 3.2972, -2.2909, -2.2909)}
 
+
+def copy_bands(source_product, destination_product, band_list = ['sat_zenith_tn',
+                                                                 'sat_zenith_to', 
+                                                                 'solar_azimuth_tn', 
+                                                                 'solar_zenith_tn',
+                                                                 'total_column_water_vapour_tx',
+                                                                 'cloud_in',
+                                                                 'cloud_io']):
+    
+    for band in band_list:
+        files = glob.glob(pth.join(source_product,band+'.*'))
+        for file in files:
+            shutil.copy(file, destination_product)
+    
 
 def point2pix(coords , gt, upperBound = False):
     ''' Convert map coordinates into pixel coordinates
