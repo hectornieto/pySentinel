@@ -160,7 +160,7 @@ def get_pixel_coordinates(X, Y, geoTransform):
     col =( X - geoTransform[0]) / geoTransform[1]
     return int(row), int(col)
 
-def convert_coordinate_array(input_coordinate, input_EPSG, output_EPSG=4326): 
+def convert_coordinate_array(input_coordinate, input_src, output_src = None): 
     ''' Coordinate conversion between two coordinate systems
     
     Parameters
@@ -185,8 +185,12 @@ def convert_coordinate_array(input_coordinate, input_EPSG, output_EPSG=4326):
     '''
     from pyproj import Proj, transform
     
-    inProj = Proj(init='epsg:%s'%input_EPSG)
-    outProj = Proj(init='epsg:%s'%output_EPSG)
+    if not output_src:
+        output_src = osr.SpatialReference()
+        output_src.ImportFromEPSG(4326)
+
+    inProj = Proj(input_src.ExportToProj4())
+    outProj = Proj(output_src.ExportToProj4())
     
     X_0, Y_0 = transform(inProj, outProj, input_coordinate[0], input_coordinate[1])
 
