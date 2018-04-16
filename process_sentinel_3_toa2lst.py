@@ -132,7 +132,7 @@ if __name__=='__main__':
         logfid.close()
         
     for s2_file in file_list:
-    
+        tile = gu.tile_from_file_name(s2_file)
         date_query, input_src, extent = get_sentinel2_date_extent(s2_file)
         input_epsg = gu.prj_to_epsg(gu.src_to_prj(input_src))
         footprint = sentinel_hub_footprint(extent, input_src)
@@ -165,7 +165,7 @@ if __name__=='__main__':
                                               input_epsg,
                                               resolution,
                                               extent = extent,
-                                              output_file = None,
+                                              output_file = input_file + '_%s'%tile,
                                               paralellism = 120)
                 
                 out_filename = list(filename.rstrip('.zip'))
@@ -176,7 +176,7 @@ if __name__=='__main__':
                     sen.delete_DIMAP_bands(l1_file, l1_band_list)
                     shutil.rmtree(input_file)
                     #os.remove(input_file+'.zip')
-                    outfile_dir = pth.join(output_dir,out_filename+'.data')
+                    outfile_dir = pth.join(output_dir,out_filename+'_%s.data'%tile)
                     if not pth.isdir(outfile_dir):
                         os.makedirs(outfile_dir)
                         
@@ -199,6 +199,14 @@ if __name__=='__main__':
                                             VALID_PIXEL = 0, 
                                             out_dir = outfile_dir)
                     
+                    sen.copy_bands(l1_file+'.data',
+                                   outfile_dir, 
+                                   band_list = ['sat_zenith_tn',
+                                                'solar_azimuth_tn', 
+                                                'solar_zenith_tn',
+                                                'total_column_water_vapour_tx',
+                                                'cloud_in'])
+        
                     logfid=open(pth.join(output_dir,'processed_%s.txt'%site),'a')
                     logfid.write('\n'+test_filename)
                     logfid.flush()
