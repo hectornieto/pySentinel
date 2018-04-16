@@ -303,11 +303,35 @@ def get_ecmwf_resample_and_interpolate(date_time,
                               variables = variables)
     
     
+    ecmwf_resample_and_interpolate(date_time, 
+                                   gt_out, 
+                                   prj_out, 
+                                   shape_out,
+                                   outfile_basename,
+                                   gid_fc,
+                                   gid_an,
+                                   variables = variables)
+        
+
+def ecmwf_resample_and_interpolate(date_time, 
+                                   gt_out, 
+                                   prj_out, 
+                                   shape_out,
+                                   outfile_basename,
+                                   gid_fc,
+                                   gid_an,
+                                   variables =[TA_CODE, 
+                                               TDEW_CODE, 
+                                               UWIND_CODE, 
+                                               VWIND_CODE]):
+                                                   
+   
     time = float(date_time.hour) + float(date_time.minute)/60.  + float(date_time.second)/3600.
     time_0, time_1 = get_time_boundaries(time)
     time_0, time_1 = map(int, [time_0, time_1])
-    date_ecmwf_0 = get_ecmwf_datetime_boundaries(date_time, time_0)
-    date_ecmwf_1 = get_ecmwf_datetime_boundaries(date_time, time_1)
+    date_0 = dt.datetime(date_time.year, date_time.month, date_time.day)
+    date_ecmwf_0 = get_ecmwf_datetime_boundaries(date_0, time_0)
+    date_ecmwf_1 = get_ecmwf_datetime_boundaries(date_0, time_1)
     
     time_interp = linear_interpolation(time, time_0, time_1)
     
