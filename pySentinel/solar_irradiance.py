@@ -247,21 +247,33 @@ def get_solar_irradiance_and_incidence(s3_image_folder,
     shape_s3 = data.shape
     del data
     
-    if not pth.isfile(pth.join(s3_image_folder, 'solar_zenith_tn.img')):
-        # Obtain pixel coordinates
-        x_s3, y_s3 = gu.get_coordinates_image(shape_s3, geo_s3)    
-        lon_s3, lat_s3 = gu.convert_coordinate_array((x_s3, y_s3), 
-                                                   s3_src, 
-                                                   output_src = None)
-        
-        # Get solar angles                                   
-        sza_s3, saa_s3 = calc_sun_angles(lat_s3, lon_s3, 0, DOY, time_s3)
-        
-    else:
-        sza_s3, _,_ =  gu.read_single_band_image(pth.join(s3_image_folder,
-                                                          'solar_zenith_tn.img'))
-        saa_s3, _,_ =  gu.read_single_band_image(pth.join(s3_image_folder,
-                                                          'solar_azimuth_tn.img'))
+#==============================================================================
+#     if not pth.isfile(pth.join(s3_image_folder, 'solar_zenith_tn.img')):
+#         # Obtain pixel coordinates
+#         x_s3, y_s3 = gu.get_coordinates_image(shape_s3, geo_s3)    
+#         lon_s3, lat_s3 = gu.convert_coordinate_array((x_s3, y_s3), 
+#                                                    s3_src, 
+#                                                    output_src = None)
+#         
+#         # Get solar angles                                   
+#         sza_s3, saa_s3 = calc_sun_angles(lat_s3, lon_s3, 0, DOY, time_s3)
+#         
+#     else:
+#         sza_s3, _,_ =  gu.read_single_band_image(pth.join(s3_image_folder,
+#                                                           'solar_zenith_tn.img'))
+#         saa_s3, _,_ =  gu.read_single_band_image(pth.join(s3_image_folder,
+#                                                           'solar_azimuth_tn.img'))
+# 
+#==============================================================================
+    # Obtain pixel coordinates
+    x_s3, y_s3 = gu.get_coordinates_image(shape_s3, geo_s3)    
+    lon_s3, lat_s3 = gu.convert_coordinate_array((x_s3, y_s3), 
+                                                 s3_src, 
+                                                 output_src = None)
+     
+    # Get solar angles                                   
+    sza_s3, saa_s3 = calc_sun_angles(lat_s3, lon_s3, 0, DOY, time_s3)
+
 
     # Get atmospheric information from Sentinel2 tile
     mask, geo_s2, prj_s2 = gu.read_single_band_image(pth.join(s2_image_folder,
