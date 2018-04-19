@@ -17,11 +17,11 @@ import shutil
 
 geographic_EPSG = 4326
 resolution = (1000,1000)
-site = 'Borden'
+site = 'Majadas'
 emis_veg = [0.990, 0.990]   
 emis_soil = [0.969, 0.977]
 workdir=os.getcwd()
-
+s2_bands_to_resample = ['lai', 'fcover', 'B4', 'B8A', 'fapar', 'lai_cab', 'lai_cw']
 
 platformname = 'Sentinel-3'
 footprint_template = '"Intersects(POLYGON((%s %s,%s %s,%s %s,%s %s,%s %s)))"'
@@ -179,21 +179,20 @@ if __name__=='__main__':
                     outfile_dir = pth.join(output_dir,out_filename+'_%s.data'%tile)
                     if not pth.isdir(outfile_dir):
                         os.makedirs(outfile_dir)
-                        
-                    LAI = sen.resample_S2_LAI(pth.join(s2_file,'lai.img'), 
-                                          extent, 
-                                          input_epsg, 
-                                          resolution = resolution, 
-                                          out_file = pth.join(outfile_dir, 'LAI_S2.img'))
+                    
+                    resampled_images = {}
+                    for band in s2_bands_to_resample:
+                        resampled_images[band] = sen.resample_S2_LAI(
+                                                        pth.join(s2_file,
+                                                                 '%s.img'%band), 
+                                                        extent, 
+                                                        input_epsg, 
+                                                        resolution = resolution, 
+                                                        out_file = pth.join(outfile_dir, 
+                                                                          '%s_S2.img'%band))
 
-                    fapar = sen.resample_S2_LAI(pth.join(s2_file,'fapar.img'), 
-                                          extent, 
-                                          input_epsg, 
-                                          resolution = resolution, 
-                                          out_file = pth.join(outfile_dir, 'FAPAR_S2.img'))
-    
                     sen.sentinel3_LST_processor(l1_file, 
-                                            LAI,    
+                                            resampled_images['lai'],    
                                             emis_veg = emis_veg,    
                                             emis_soil = emis_soil, 
                                             VALID_PIXEL = 0, 
