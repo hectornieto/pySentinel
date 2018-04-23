@@ -11,6 +11,7 @@ import numpy as np
 from osgeo import gdal, gdalconst
 from sklearn import tree, linear_model, ensemble, preprocessing
 import sklearn.neural_network as ann_sklearn
+import sknn.mlp as ann_sknn 
 import scipy.ndimage as ndi
 
 REG_sknn_ann = 0
@@ -839,8 +840,6 @@ class NeuralNetworkSharpener(DecisionTreeSharpener):
         self.regressionType = regressionType
         # Move the import of sknn here because this library is not easy to
         # install but this shouldn't prevent the use of other parts of pyDMS.        
-        if self.regressionType == REG_sknn_ann:
-            import sknn.mlp as ann_sknn 
     
     def _doFit(self, goodData_LR, goodData_HR, weight, local):
         ''' Private function. Fits the neural network.
@@ -860,11 +859,12 @@ class NeuralNetworkSharpener(DecisionTreeSharpener):
                     layers.append(ann_sknn.Layer(self.regressorOpt['activation'],units=layer))
             else:
                 layers.append(ann_sknn.Layer(self.regressorOpt['activation'],units=100))
-            self.regressorOpt.pop('activation')
-            self.regressorOpt.pop('hidden_layer_sizes')
+            annOpt = self.regressorOpt.copy()
+            annOpt.pop('activation')
+            annOpt.pop('hidden_layer_sizes')
             output_layer = ann_sknn.Layer('Linear',units=1)
             layers.append(output_layer)
-            reg = ann_sknn.Regressor(layers,**self.regressorOpt)
+            reg = ann_sknn.Regressor(layers,**annOpt)
         else:
             reg= ann_sklearn.MLPRegressor(**self.regressorOpt)
             
