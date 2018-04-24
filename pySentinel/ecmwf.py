@@ -366,3 +366,50 @@ def ecmwf_resample_and_interpolate(date_time,
                    prj_out = prj_out,
                    shape_out = shape_out,
                    outname = outfile)
+
+def era5_resample_and_interpolate(date_time, 
+                                   gt_out, 
+                                   prj_out, 
+                                   shape_out,
+                                   outfile_basename,
+                                   gid_an,
+                                   variables =[TA_CODE, 
+                                               TDEW_CODE, 
+                                               UWIND_CODE, 
+                                               VWIND_CODE]):
+                                                   
+   
+    time = float(date_time.hour) + float(date_time.minute)/60.  + float(date_time.second)/3600.
+    time_0, time_1 = np.floor(time), np.ceil(time)
+    time_0, time_1 = map(int, [time_0, time_1])
+    print(time_0, time_1)
+    date_0 = dt.datetime(date_time.year, date_time.month, date_time.day)
+    date_ecmwf_0 = get_ecmwf_datetime_boundaries(date_0, time_0)
+    date_ecmwf_1 = get_ecmwf_datetime_boundaries(date_0, time_1)
+    
+    time_interp = linear_interpolation(time, time_0, time_1)
+    
+    for var in variables:
+        data_0, lats, lons = find_grib_data (gid_an, var, date_ecmwf_0, time_0)
+        data_1, lats, lons = find_grib_data (gid_an, var, date_ecmwf_1, time_1)
+        
+        data = time_interp(data_0, data_1)
+        
+        res_lats = np.mean(lats[1:,:] - lats[:-1,:])
+        res_lons = np.mean(lons[:,1:] - lons[:,:-1])
+        
+        gt_in = [lons[0,0], res_lons, 0,
+                 lats[0,0], 0, res_lats]
+        
+        prj_in = osr.SpatialReference()
+        prj_in.ImportFromEPSG(4326)
+        prj_in = prj_in.ExportToWkt()
+        outfile = pth.join(outfile_basename, '%s.img'%VAR_NAMES[var])
+        
+        gu.resample_array (data,
+                   gt_in,
+                   prj_in,
+                   gt_out = gt_out,
+                   prj_out = prj_out,
+                   shape_out = shape_out,
+                   outname = outfile)                   
