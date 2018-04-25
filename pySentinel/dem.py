@@ -104,15 +104,14 @@ def process_dem_for_s2_tile(s2_file_path, dem_folder = None):
     prj_out = fid.GetProjection()
     input_src = osr.SpatialReference()
     input_src.ImportFromWkt(prj_out)
-    input_epsg = int(input_src.GetAttrValue('AUTHORITY',1))
     shape_out = fid.RasterYSize, fid.RasterXSize
     del fid
     
     # Convert the image extent into geographic coordinates
     ul_map = gt_out[0], gt_out[3]
     lr_map = gu.get_map_coordinates(shape_out[0], shape_out[1], gt_out)
-    ul = gu.convert_coordinate(ul_map, input_epsg, output_EPSG=4326)
-    lr = gu.convert_coordinate(lr_map, input_epsg, output_EPSG=4326)
+    ul = gu.convert_coordinate(ul_map, input_src, output_src = None)
+    lr = gu.convert_coordinate(lr_map, input_src, output_src = None)
     
     srtm_files = get_srtm(ul, lr, dem_folder)
     mosaic_list = []
