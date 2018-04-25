@@ -232,7 +232,7 @@ def get_solar_irradiance_and_incidence(s3_image,
                                        incidence_out_file):
     
     # Get the date and time from the image filename
-    s3_base_file = pth.basename(s3_image)
+    s3_base_file = pth.basename(pth.dirname(s3_image))
     date_str = s3_base_file[16:24]
     time_s3 = float(s3_base_file[25:27]) + float(s3_base_file[27:29])/60.\
                 + float(s3_base_file[29:31])/3600.
@@ -246,15 +246,14 @@ def get_solar_irradiance_and_incidence(s3_image,
     prj_s3 = fid.GetProjection()
     s3_src = osr.SpatialReference()
     s3_src.ImportFromWkt(prj_s3)
-    s3_epsg = int(s3_src.GetAttrValue('AUTHORITY',1))
     shape_s3 = fid.RasterYSize, fid.RasterXSize
     del fid
     
     # Obtain pixel coordinates
     x_s3, y_s3 = gu.get_coordinates_image(shape_s3, geo_s3)    
     lon_s3, lat_s3 = gu.convert_coordinate_array((x_s3, y_s3), 
-                                               s3_epsg, 
-                                               output_EPSG=4326)
+                                               s3_src, 
+                                               output_src = None)
     
     # Get solar angles                                   
     sza_s3, saa_s3 =calc_sun_angles(lat_s3, lon_s3, 0, DOY, time_s3)
@@ -266,7 +265,6 @@ def get_solar_irradiance_and_incidence(s3_image,
     prj_s2 = fid.GetProjection()
     s2_src = osr.SpatialReference()
     s2_src.ImportFromWkt(prj_s2)
-    s2_epsg = int(s2_src.GetAttrValue('AUTHORITY',1))
     mask = fid.GetRasterBand(1).ReadAsArray()
 
     fid = gdal.Open(pth.join(s2_image_folder,'quality_wvp.img'), gdal.GA_ReadOnly)
@@ -312,8 +310,8 @@ def get_solar_irradiance_and_incidence(s3_image,
     
     x_s2, y_s2 = gu.get_coordinates_image(mask.shape, geo_s2)    
     lon_s2, lat_s2 = gu.convert_coordinate_array((x_s2, y_s2), 
-                                               s2_epsg, 
-                                               output_EPSG=4326)
+                                               s2_src, 
+                                               output_src = None)
     
     cos_theta_i = incidence_angle_tilted(lat_s2, 
                                      lon_s2, 
