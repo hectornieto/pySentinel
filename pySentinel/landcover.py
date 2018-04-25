@@ -84,7 +84,9 @@ def process_landcover_for_s2_tile(s2_file_path,
     if not output_dir:
         output_dir = pth.dirname(land_cover_file)
     
-    tile = pth.basename(s2_file_path)[38:44]    
+    s2_folder_path = pth.dirname(s2_file_path)
+    tile = gu.tile_from_file_name(s2_folder_path)   
+    
     outfile_basename = pth.join(output_dir,'%s_ESACCI_HR.tif'%tile)
     if pth.isfile(outfile_basename):
         print('%s already processed'%outfile_basename)

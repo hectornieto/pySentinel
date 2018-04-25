@@ -84,9 +84,8 @@ def wget_download(url,output):
 
 def process_dem_for_s2_tile(s2_file_path, dem_folder = None):
     
-    input_base_file = pth.basename(s2_file_path)
-    
-    tile = input_base_file[38:44]    
+    s2_folder_path = pth.dirname(s2_file_path)
+    tile = gu.tile_from_file_name(s2_folder_path)   
 
     if not dem_folder:
         # Use the same folder of input s2 image
