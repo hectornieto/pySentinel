@@ -225,14 +225,14 @@ def calc_pressure(z):
     p = 1013.25 * (1.0 - 2.225577e-5 * z)**5.25588
     return np.asarray(p)
 
-def get_solar_irradiance_and_incidence(s3_image_folder, 
+def get_solar_irradiance_and_incidence(s3_image, 
                                        s2_image_folder,
                                        dem_folder,
                                        Sdn_out_file,
                                        incidence_out_file):
     
     # Get the date and time from the image filename
-    s3_base_file = pth.basename(s3_image_folder)
+    s3_base_file = pth.basename(s3_image)
     date_str = s3_base_file[16:24]
     time_s3 = float(s3_base_file[25:27]) + float(s3_base_file[27:29])/60.\
                 + float(s3_base_file[29:31])/3600.
@@ -241,63 +241,53 @@ def get_solar_irradiance_and_incidence(s3_image_folder,
     DOY = date.tm_yday
     
     # Get projection and extent information            
-    data, geo_s3, prj_s3 = gu.read_single_band_image(pth.join(s3_image_folder, 
-                                                              'LST_in.img'))
-    s3_src = gu.prj_to_src(prj_s3)
-    shape_s3 = data.shape
-    del data
+    fid = gdal.Open(s3_image, gdal.GA_ReadOnly)
+    geo_s3 = fid.GetGeoTransform()
+    prj_s3 = fid.GetProjection()
+    s3_src = osr.SpatialReference()
+    s3_src.ImportFromWkt(prj_s3)
+    s3_epsg = int(s3_src.GetAttrValue('AUTHORITY',1))
+    shape_s3 = fid.RasterYSize, fid.RasterXSize
+    del fid
     
-#==============================================================================
-#     if not pth.isfile(pth.join(s3_image_folder, 'solar_zenith_tn.img')):
-#         # Obtain pixel coordinates
-#         x_s3, y_s3 = gu.get_coordinates_image(shape_s3, geo_s3)    
-#         lon_s3, lat_s3 = gu.convert_coordinate_array((x_s3, y_s3), 
-#                                                    s3_src, 
-#                                                    output_src = None)
-#         
-#         # Get solar angles                                   
-#         sza_s3, saa_s3 = calc_sun_angles(lat_s3, lon_s3, 0, DOY, time_s3)
-#         
-#     else:
-#         sza_s3, _,_ =  gu.read_single_band_image(pth.join(s3_image_folder,
-#                                                           'solar_zenith_tn.img'))
-#         saa_s3, _,_ =  gu.read_single_band_image(pth.join(s3_image_folder,
-#                                                           'solar_azimuth_tn.img'))
-# 
-#==============================================================================
     # Obtain pixel coordinates
     x_s3, y_s3 = gu.get_coordinates_image(shape_s3, geo_s3)    
     lon_s3, lat_s3 = gu.convert_coordinate_array((x_s3, y_s3), 
-                                                 s3_src, 
-                                                 output_src = None)
-     
+                                               s3_epsg, 
+                                               output_EPSG=4326)
+    
     # Get solar angles                                   
-    sza_s3, saa_s3 = calc_sun_angles(lat_s3, lon_s3, 0, DOY, time_s3)
-
-
+    sza_s3, saa_s3 =calc_sun_angles(lat_s3, lon_s3, 0, DOY, time_s3)
+    
+    
     # Get atmospheric information from Sentinel2 tile
-    mask, geo_s2, prj_s2 = gu.read_single_band_image(pth.join(s2_image_folder,
-                                                              'mask.tif'))
+    fid = gdal.Open(pth.join(s2_image_folder,'mask.img'), gdal.GA_ReadOnly)
+    geo_s2 = fid.GetGeoTransform()
+    prj_s2 = fid.GetProjection()
+    s2_src = osr.SpatialReference()
+    s2_src.ImportFromWkt(prj_s2)
+    s2_epsg = int(s2_src.GetAttrValue('AUTHORITY',1))
+    mask = fid.GetRasterBand(1).ReadAsArray()
 
-    s2_src = gu.prj_to_src(prj_s2)
-   
-    tcwv, _, _ = gu.read_single_band_image(pth.join(s2_image_folder,
-                                                              'quality_wvp.img'))
+    fid = gdal.Open(pth.join(s2_image_folder,'quality_wvp.img'), gdal.GA_ReadOnly)
+    tcwv = S2_TCWV_scale * fid.GetRasterBand(1).ReadAsArray()
 
-    tcwv = tcwv * S2_TCWV_scale
-
-    aot_550, _, _ = gu.read_single_band_image(pth.join(s2_image_folder,
-                                                              'quality_aot.img'))
-
-    aot_550 = aot_550 * S2_AOT_scale
+    fid = gdal.Open(pth.join(s2_image_folder,'quality_aot.img'), gdal.GA_ReadOnly)
+    aot_550 = S2_AOT_scale * fid.GetRasterBand(1).ReadAsArray()
     
 
     # Retrieve topographic data
-    tile = gu.tile_from_file_name(s2_image_folder)
+    s2_base_file = pth.basename(s2_image_folder)
+    tile = s2_base_file[38:44]
     
-    dem_lr, _, _ = gu.read_single_band_image(pth.join(dem_folder,'%s_DEM_LR.tif'%tile))
-    slope_hr, _, _ =  gu.read_single_band_image(pth.join(dem_folder,'%s_slope_HR.tif'%tile))
-    aspect_hr, _, _ =  gu.read_single_band_image(pth.join(dem_folder,'%s_aspect_HR.tif'%tile))
+    fid = gdal.Open(pth.join(dem_folder,'%s_DEM_LR.tif'%tile), gdal.GA_ReadOnly)
+    dem_lr = fid.GetRasterBand(1).ReadAsArray()
+     
+    fid = gdal.Open(pth.join(dem_folder,'%s_slope_HR.tif'%tile), gdal.GA_ReadOnly)
+    slope_hr = fid.GetRasterBand(1).ReadAsArray()
+
+    fid = gdal.Open(pth.join(dem_folder,'%s_aspect_HR.tif'%tile), gdal.GA_ReadOnly)
+    aspect_hr = fid.GetRasterBand(1).ReadAsArray()
     
     # Calculate irradiance
     press = calc_pressure(dem_lr)
@@ -320,11 +310,10 @@ def get_solar_irradiance_and_incidence(s3_image_folder,
 
     press = calc_pressure(dem_lr)
     
-    x_s2, y_s2 = gu.get_coordinates_image(mask.shape, geo_s2) 
-    
+    x_s2, y_s2 = gu.get_coordinates_image(mask.shape, geo_s2)    
     lon_s2, lat_s2 = gu.convert_coordinate_array((x_s2, y_s2), 
-                                               s2_src, 
-                                               output_src = None)
+                                               s2_epsg, 
+                                               output_EPSG=4326)
     
     cos_theta_i = incidence_angle_tilted(lat_s2, 
                                      lon_s2, 
