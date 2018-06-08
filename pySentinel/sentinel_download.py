@@ -9,6 +9,7 @@ import subprocess
 from re import match
 import sys
 import os
+import os.path as pth
 import multiprocessing
 from functools import partial
 import re
@@ -18,10 +19,11 @@ MAX_ATTEMPTS=5
 
 class sentinel_configuration_download():
     
-    def __init__ (self,input_file, logfile=None):
+    def __init__ (self,input_file, output_dir, logfile=None):
         self.MAX_DOWNLOADS=2
         self.input_file=input_file
         self.logfile=logfile
+        self.output_dir = output_dir
         # Variables common to any sentinel
         self.server = [
             'server',
@@ -127,12 +129,15 @@ class sentinel_configuration_download():
         self.parse_input_config()
         self.get_query_command()
         wget_opts={'user':self.config_data['user'],'password':self.config_data['password']}
-        output_dir=self.working_dir+sep+ self.config_data['platformname']
-        if self.config_data['platformname']=='Sentinel-3':
-            output_dir+=sep+ self.config_data['instrumentshortname']
         
-        downloaded_files=set(glob.glob(output_dir+sep+'/*.zip'))
-        self.download_query_products(output_dir,
+        file_list=glob.glob(pth.join(self.output_dir, '*.SAFE'))
+        downloaded_files = [pth.basename(path).rstrip('.SAFE') for path in file_list]
+        file_list=glob.glob(pth.join(self.output_dir, '*.zip'))
+        for path in file_list:
+            downloaded_files.append(pth.basename(path).rstrip('.SAFE').rstrip('.zip'))
+        
+        downloaded_files = set(downloaded_files)
+        self.download_query_products(self.output_dir,
                                      wget_opts,
                                      logfile = self.logfile,
                                      downloaded_files = downloaded_files)
@@ -152,7 +157,8 @@ class sentinel_configuration_download():
         # Loop query results and downloaded files meeting the criteria
         for link, filename, orbit in zip(links, filenames, orbits):
             output=output_dir+sep+filename
-            if output+'.zip' not in downloaded_files:
+            print(filename.rstrip('.SAFE'))
+            if filename.rstrip('.SAFE') not in downloaded_files:
                 download=True
                 # Filter images according to additional_filters
                 if 'orbitdirection' in self.config_data.keys():
@@ -265,3 +271,12 @@ def get_md5(fname):
         for chunk in iter(lambda: f.read(4096), b""):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
+
+if __name__=='__main__':
+
+    workdir=pth.join(pth.expanduser('~'), 'data', 'Projects', 'LISA', 'Sentinel')
+    test=sentinel_configuration_download(pth.join(workdir,'Raimat_S2.txt'),
+                                         pth.join(workdir, 'S2', 'Raimat', 'L1'),
+                                         logfile=pth.join(workdir,'Raimat_Download_S2A.log'))
+    test.run()
+
