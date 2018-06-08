@@ -272,3 +272,12 @@ def get_md5(fname):
         for chunk in iter(lambda: f.read(4096), b""):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
+
+if __name__=='__main__':
+
+    workdir=pth.join(pth.expanduser('~'), 'data', 'Projects', 'LISA', 'Sentinel')
+    test=sentinel_configuration_download(pth.join(workdir,'Raimat_S2.txt'),
+                                         pth.join(workdir, 'S2', 'Raimat', 'L1'),
+                                         logfile=pth.join(workdir,'Raimat_Download_S2A.log'))
+    test.run()
+
