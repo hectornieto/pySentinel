@@ -16,8 +16,9 @@ import glob
 import shutil
 
 geographic_EPSG = 4326
+input_epsg = 32717
 resolution = (1000,1000)
-site = 'Majadas'
+site = 'AgriOlmos'
 emis_veg = [0.990, 0.990]   
 emis_soil = [0.969, 0.977]
 workdir=os.getcwd()
@@ -62,8 +63,8 @@ def get_sentinel2_date_extent(setinel2_dim_folder):
     prj = fid.GetProjection()
     input_src = osr.SpatialReference()
     input_src.ImportFromWkt(prj)
-    n_rows = fid.RasterXSize
-    n_cols = fid.RasterYSize
+    n_cols = fid.RasterXSize
+    n_rows = fid.RasterYSize
     
     ul = gu.get_map_coordinates(0, 0, geo)
     lr = gu.get_map_coordinates(n_rows, n_cols, geo)
@@ -134,11 +135,13 @@ if __name__=='__main__':
     for s2_file in file_list:
         tile = gu.tile_from_file_name(s2_file)
         date_query, input_src, extent = get_sentinel2_date_extent(s2_file)
-        input_epsg = gu.prj_to_epsg(gu.src_to_prj(input_src))
+        
         footprint = sentinel_hub_footprint(extent, input_src)
         print(date_query)
         write_query_file(query_file, date_query, footprint)
-        test = sentinel_configuration_download(query_file,logfile=None)
+        test = sentinel_configuration_download(query_file, 
+                                               output_dir = output_dir,
+                                               logfile=None)
         test.parse_input_config()
         test.get_query_command()
         wget_opts = {'user': test.config_data['user'],
@@ -186,7 +189,7 @@ if __name__=='__main__':
                                                         pth.join(s2_file,
                                                                  '%s.img'%band), 
                                                         extent, 
-                                                        input_epsg, 
+                                                        input_src, 
                                                         resolution = resolution, 
                                                         out_file = pth.join(outfile_dir, 
                                                                           '%s_S2.img'%band))
