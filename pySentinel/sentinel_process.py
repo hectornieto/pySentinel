@@ -218,7 +218,7 @@ def biophysical_SNAP(input_file,
 
 def resample_S2_LAI(lai_file, 
                     extent, 
-                    epsg_projection, 
+                    input_src, 
                     resolution = (1000,1000), 
                     out_file='MEM'):
     ''' Resamples Sentinel 2 LAI product to Sentinel 3 scale by pixel aggregation
@@ -245,8 +245,7 @@ def resample_S2_LAI(lai_file,
     geo_transform = [extent[0], resolution[0], 0, 
                                  extent[1], 0, -resolution[1]]
     
-    input_src = osr.SpatialReference()
-    input_src.ImportFromEPSG(epsg_projection)
+
     projection = input_src.ExportToWkt()
     # Resample Sentinel2 LAI file
     file_LAI=gu.resample_file(lai_file, 
@@ -897,8 +896,8 @@ def reproject_S3_SNAP(input_file,
     
     easting=extent[0]
     northing=extent[1]
-    width=int(np.ceil((extent[2]-extent[0])/resolution[0]))
-    height=int(np.ceil((extent[1]-extent[3])/resolution[1]))
+    width=int(np.round((extent[2]-extent[0])/resolution[0]))
+    height=int(np.round((extent[1]-extent[3])/resolution[1]))
 
     # SNAP-GPT graph file to enforce reprojecting the 1km dataset
     xml_text='''<graph id="Graph">
