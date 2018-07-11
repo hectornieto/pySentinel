@@ -13,11 +13,83 @@ from sklearn import tree, linear_model, ensemble, preprocessing
 import sklearn.neural_network as ann_sklearn
 import sknn.mlp as ann_sknn 
 import scipy.ndimage as ndi
+from pySentinel import gdal_utils as gu
+import time 
+import os.path as pth
 
 REG_sknn_ann = 0
 REG_sklearn_ann = 1
 
 ##################################################################
+def run_sharpening(high_res_file, 
+                   low_res_file, 
+                   low_res_mask,
+                   lst_dms_filename,
+                   use_decision_tree = True,
+                   cv_homogeneity_threshold = 0,
+                   moving_window_size = 0,
+                   regressor_opts = {'perLeafLinearRegression':True,
+                                     'linearRegressionExtrapolationRatio': 0.25}):
+    
+    commonOpts = {"highResFiles":               [high_res_file],
+                  "lowResFiles":                [low_res_file],
+                  "lowResQualityFiles":         [low_res_mask], 
+                  "lowResGoodQualityFlags":     [1],
+                  "cvHomogeneityThreshold":     cv_homogeneity_threshold,
+                  "movingWindowSize":           moving_window_size,
+                  "disaggregatingTemperature":  True}
+   
+#==============================================================================
+#     dtOpts =     {"perLeafLinearRegression":    True,
+#                   "linearRegressionExtrapolationRatio": regression_extrapolation_ratio}
+#     sknnOpts =   {'hidden_layer_sizes':         (10,50),
+#                   'activation':                 'tanh',
+#                   }#'dropout_rate':               0.1} 
+#     nnOpts =     {"regressionType":             REG_sklearn_ann,
+#                   "regressorOpt":               sknnOpts}
+# 
+#==============================================================================
+    start_time = time.time() 
+
+    if use_decision_tree:
+        opts = commonOpts.copy()
+        opts.update(regressor_opts)
+        disaggregator = DecisionTreeSharpener(**opts)
+    else:
+        opts = commonOpts.copy()
+        opts.update(regressor_opts)
+        disaggregator = NeuralNetworkSharpener(**opts)
+    
+    print("Training regressor...")
+    disaggregator.trainSharpener()
+    print("Sharpening...")
+    downscaledFile = disaggregator.applySharpener(high_res_file, low_res_file)
+    print("Residual analysis...")
+    residualImage, correctedImage = disaggregator.residualAnalysis(downscaledFile, 
+                                                                   low_res_file, 
+                                                                   low_res_mask, 
+                                                                   doCorrection = True)
+    print("Saving output...")
+    
+    if correctedImage is not None: 
+        outImage = correctedImage
+    else:
+        outImage = downscaledFile
+
+    outFile = gu.save_img(outImage.GetRasterBand(1).ReadAsArray(), 
+                                outImage.GetGeoTransform(), 
+                                outImage.GetProjection(), 
+                                lst_dms_filename)
+                            
+    residualFile = gu.save_img(residualImage.GetRasterBand(1).ReadAsArray(),
+                               residualImage.GetGeoTransform(),
+                               residualImage.GetProjection(),
+                               pth.splitext(lst_dms_filename)[0]
+                                         + "_residual"
+                                         + pth.splitext(lst_dms_filename)[1])
+       
+    print(time.time() - start_time, "seconds")  
+    return outFile, residualFile
 
 class DecisionTreeRegressorWithLinearLeafRegression(tree.DecisionTreeRegressor):
     ''' Decision tree regressor with added linear (bayesian ridge) regression
