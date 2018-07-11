@@ -34,7 +34,7 @@ def read_file(filepath, root=PROJECT_ROOT):
 
 LONG_DESCRIPTION = read_file("README.md")
 SHORT_DESCRIPTION = "Tools for Pre- and postprocessing Sentinel 2 and Sentinel 3 Imagery"
-REQS = ['numpy>=1.10', 'gdal', 'pyPro4Sail', 'netCDF4']
+REQS = ['numpy>=1.10', 'gdal', 'pyPro4Sail', 'pyTSEB', 'netCDF4', 'pyproj', 'sklearn']
 
 setup(
     name                  = "pySentinel",
